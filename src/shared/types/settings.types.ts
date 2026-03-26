@@ -1,0 +1,124 @@
+import {
+  DEFAULT_SYSTEM_PROMPT_DAILY,
+  DEFAULT_SYSTEM_PROMPT_WEEKLY,
+  DEFAULT_EMAIL_SUBJECT_DAILY,
+  DEFAULT_EMAIL_SUBJECT_WEEKLY
+} from '../constants'
+
+export interface AppSettings {
+  version: string
+  general: GeneralSettings
+  projects: Project[]
+  templates: Template[]
+  claude: ClaudeSettings
+}
+
+export interface GeneralSettings {
+  dataDir: string
+  logRetentionDays: number
+  defaultReportType: 'daily' | 'weekly'
+}
+
+export interface Project {
+  id: string
+  name: string
+  enabled: boolean
+  color: string
+  gitRepos?: GitProjectConfig[]
+  svnRepos?: SvnProjectConfig[]
+  slack?: SlackProjectConfig
+  filePaths?: FilePathConfig[]
+  createdAt: string
+  updatedAt: string
+}
+
+export interface GitProjectConfig {
+  id: string
+  enabled: boolean
+  localPath: string    // ローカル作業ディレクトリ
+  repoUrl: string      // リモートURL（HTTPS認証時のトークン注入用、任意）
+  branch: string
+  useSSH: boolean
+  credentialKey: string
+}
+
+export interface SvnProjectConfig {
+  id: string
+  enabled: boolean
+  localPath: string    // ローカル作業コピーパス（svn status 用）
+  repoUrl: string      // SVNリポジトリURL（svn log 用）
+  username?: string    // コミットの絞り込み用（認証は行わない）
+}
+
+export interface SlackProjectConfig {
+  enabled: boolean
+  workspaceId: string
+  channelIds: string[]
+  credentialKey: string
+}
+
+export interface FilePathConfig {
+  path: string
+  recursive: boolean
+  excludePatterns: string[]
+  includePatterns: string[]
+}
+
+export interface Template {
+  id: string
+  name: string
+  type: 'daily' | 'weekly'
+  isDefault: boolean
+  systemPrompt: string
+  emailSubjectTemplate: string
+  emailTo: string[]
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ClaudeSettings {
+  enabled: boolean
+  model: string
+  maxTokens: number
+  credentialKey: string
+}
+
+export const DEFAULT_SETTINGS: AppSettings = {
+  version: '1.0.0',
+  general: {
+    dataDir: '',
+    logRetentionDays: 30,
+    defaultReportType: 'daily'
+  },
+  projects: [],
+  templates: [
+    {
+      id: 'default-daily',
+      name: 'デフォルト日報',
+      type: 'daily',
+      isDefault: true,
+      systemPrompt: DEFAULT_SYSTEM_PROMPT_DAILY,
+      emailSubjectTemplate: DEFAULT_EMAIL_SUBJECT_DAILY,
+      emailTo: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    },
+    {
+      id: 'default-weekly',
+      name: 'デフォルト週報',
+      type: 'weekly',
+      isDefault: true,
+      systemPrompt: DEFAULT_SYSTEM_PROMPT_WEEKLY,
+      emailSubjectTemplate: DEFAULT_EMAIL_SUBJECT_WEEKLY,
+      emailTo: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }
+  ],
+  claude: {
+    enabled: false,
+    model: 'claude-sonnet-4-6',
+    maxTokens: 4096,
+    credentialKey: 'claude-api-key'
+  }
+}

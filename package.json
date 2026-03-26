@@ -1,0 +1,50 @@
+{
+  "name": "drepo",
+  "version": "1.0.0",
+  "description": "日報・週報自動生成デスクトップアプリ",
+  "main": "./out/main/index.js",
+  "author": "drepo",
+  "homepage": ".",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "dist": "npm run build && electron-builder --config electron-builder.config.js",
+    "dist:win": "npm run build && electron-builder --win --config electron-builder.config.js",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json"
+  },
+  "dependencies": {
+    "@slack/web-api": "^7.3.4",
+    "clsx": "^2.1.1",
+    "electron-store": "^8.2.0",
+    "glob": "^10.5.0",
+    "keytar": "^7.9.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "simple-git": "^3.27.0",
+    "tailwind-merge": "^2.6.0",
+    "uuid": "^11.0.5",
+    "xml2js": "^0.6.2"
+  },
+  "devDependencies": {
+    "@electron-toolkit/tsconfig": "^1.0.1",
+    "@types/node": "^22.10.5",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@types/uuid": "^10.0.0",
+    "@types/xml2js": "^0.4.14",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "electron": "^33.3.1",
+    "electron-builder": "^25.1.8",
+    "electron-vite": "^3.0.0",
+    "postcss": "^8.5.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.30.3",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.3",
+    "vite": "^6.0.7",
+    "zustand": "^5.0.3"
+  }
+}

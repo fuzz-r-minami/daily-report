@@ -1,0 +1,35 @@
+export const APP_NAME = '日報・週報ジェネレーター'
+export const APP_VERSION = '1.0.0'
+
+export const PROJECT_COLORS = [
+  '#3B82F6', // blue
+  '#10B981', // emerald
+  '#F59E0B', // amber
+  '#EF4444', // red
+  '#8B5CF6', // violet
+  '#EC4899', // pink
+  '#06B6D4', // cyan
+  '#84CC16', // lime
+  '#F97316', // orange
+  '#6B7280'  // gray
+]
+
+export const CLAUDE_MODELS = [
+  { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6 (推奨)' },
+  { id: 'claude-opus-4-6', label: 'Claude Opus 4.6 (高品質)' },
+  { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5 (高速)' }
+]
+
+export const DEFAULT_EMAIL_SUBJECT_DAILY = '【日報】{{date}}'
+export const DEFAULT_EMAIL_SUBJECT_WEEKLY = '【週報】{{week_range}}'
+
+export const DEFAULT_SYSTEM_PROMPT_DAILY =
+  'あなたは日報作成アシスタントです。提供された情報を元に、元のフォーマットを保ったまま「作業内容」欄を完成させてください。リンク先から作業内容の文脈を補完し、箇条書きを活用して重複する内容はまとめてください。出力された全文をテキストとして使用するので、余計な会話文などは含まないようにしてください。'
+
+export const DEFAULT_SYSTEM_PROMPT_WEEKLY =
+  'あなたは週報作成アシスタントです。提供された情報を元に、元のフォーマットを保ったまま「作業内容」欄を完成させてください。リンク先から作業内容の文脈を補完し、箇条書きを活用して重複する内容はまとめてください。出力された全文をテキストとして使用するので、余計な会話文などは含まないようにしてください。'
+
+export const GIT_MAX_COMMITS = 200
+export const SVN_MAX_COMMITS = 200
+export const SLACK_MAX_MESSAGES = 500
+export const FILE_MAX_ENTRIES = 5000

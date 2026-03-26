@@ -1,0 +1,28 @@
+node_modules/
+out/
+dist/
+release/
+.env
+.env.local
+*.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Build artifacts
+build/*.ico
+build/*.png
+
+# Editor
+.vscode/settings.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# OS
+.DS_Store
+Thumbs.db
