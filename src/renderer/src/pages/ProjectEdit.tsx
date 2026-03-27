@@ -3,9 +3,17 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useAppStore } from '../store/app.store'
 import { api } from '../lib/api'
 import { PROJECT_COLORS } from '@shared/constants'
-import type { Project, GitProjectConfig, SvnProjectConfig, SlackProjectConfig, FilePathConfig } from '@shared/types/settings.types'
+import type {
+  Project,
+  GitProjectConfig,
+  SvnProjectConfig,
+  PerforceProjectConfig,
+  SlackProjectConfig,
+  FilePathConfig,
+  GoogleCalendarProjectConfig
+} from '@shared/types/settings.types'
 
-type Tab = 'git' | 'svn' | 'slack' | 'files'
+type Tab = 'git' | 'svn' | 'perforce' | 'slack' | 'calendar' | 'files'
 
 const newGitRepo = (): GitProjectConfig => ({
   id: crypto.randomUUID(),
@@ -15,8 +23,15 @@ const newSvnRepo = (): SvnProjectConfig => ({
   id: crypto.randomUUID(),
   enabled: true, localPath: '', repoUrl: '', username: ''
 })
+const newPerforceRepo = (): PerforceProjectConfig => ({
+  id: crypto.randomUUID(),
+  enabled: true, port: '', username: '', depotPath: '//', credentialKey: ''
+})
 const EMPTY_SLACK: SlackProjectConfig = {
   enabled: false, workspaceId: '', channelIds: [], credentialKey: ''
+}
+const EMPTY_GOOGLE_CALENDAR: GoogleCalendarProjectConfig = {
+  enabled: false
 }
 
 export function ProjectEdit(): JSX.Element {
@@ -32,13 +47,19 @@ export function ProjectEdit(): JSX.Element {
   const [activeTab, setActiveTab] = useState<Tab>('git')
   const [gitRepos, setGitRepos] = useState<GitProjectConfig[]>(existing?.gitRepos || [])
   const [svnRepos, setSvnRepos] = useState<SvnProjectConfig[]>(existing?.svnRepos || [])
+  const [perforceRepos, setPerforceRepos] = useState<PerforceProjectConfig[]>(existing?.perforceRepos || [])
+  const [perforcePasswords, setPerforcePasswords] = useState<Record<string, string>>({})
   const [slack, setSlack] = useState<SlackProjectConfig>(existing?.slack || EMPTY_SLACK)
+  const [googleCalendar, setGoogleCalendar] = useState<GoogleCalendarProjectConfig>(
+    existing?.googleCalendar || EMPTY_GOOGLE_CALENDAR
+  )
   const [filePaths, setFilePaths] = useState<FilePathConfig[]>(existing?.filePaths || [])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // Credentials keyed by repo id
   const [gitTokens, setGitTokens] = useState<Record<string, string>>({})
   const [slackToken, setSlackToken] = useState('')
+  // Calendars fetched from Google
   // Test results keyed by repo id or 'slack'
   const [testResults, setTestResults] = useState<Record<string, { msg: string; ok: boolean }>>({})
 
@@ -57,6 +78,15 @@ export function ProjectEdit(): JSX.Element {
         if (r.success && r.data) setSlackToken(r.data)
       })
     }
+    if (existing?.perforceRepos) {
+      for (const repo of existing.perforceRepos) {
+        if (repo.credentialKey) {
+          api.credentialGet(repo.credentialKey).then((r) => {
+            if (r.success && r.data) setPerforcePasswords((prev) => ({ ...prev, [repo.id]: r.data! }))
+          })
+        }
+      }
+    }
   }, [])
 
   const saveCredentials = async (proj: Project): Promise<void> => {
@@ -73,6 +103,14 @@ export function ProjectEdit(): JSX.Element {
       await api.credentialSet(key, slackToken)
       proj.slack = { ...proj.slack!, credentialKey: key }
     }
+    for (const repo of proj.perforceRepos || []) {
+      const pwd = perforcePasswords[repo.id]
+      if (pwd) {
+        const key = `p4-password-${repo.id}`
+        await api.credentialSet(key, pwd)
+        repo.credentialKey = key
+      }
+    }
   }
 
   const handleSave = async (): Promise<void> => {
@@ -83,7 +121,9 @@ export function ProjectEdit(): JSX.Element {
         name: name.trim(), color, enabled: true,
         gitRepos: gitRepos.length > 0 ? gitRepos : undefined,
         svnRepos: svnRepos.length > 0 ? svnRepos : undefined,
+        perforceRepos: perforceRepos.length > 0 ? perforceRepos : undefined,
         slack: slack.enabled ? slack : undefined,
+        googleCalendar: googleCalendar.enabled ? googleCalendar : undefined,
         filePaths: filePaths.length > 0 ? filePaths : undefined
       }
       if (isNew) {
@@ -115,6 +155,13 @@ export function ProjectEdit(): JSX.Element {
     setTestResults((prev) => ({ ...prev, [repo.id]: { msg: r.success ? r.data : r.error, ok: r.success } }))
   }
 
+  const handleTestP4 = async (repo: PerforceProjectConfig): Promise<void> => {
+    const pwd = perforcePasswords[repo.id] || ''
+    if (pwd) await api.credentialSet('p4-test-password', pwd)
+    const r = await api.p4Test(repo.port, repo.username, pwd ? 'p4-test-password' : '')
+    setTestResults((prev) => ({ ...prev, [repo.id]: { msg: r.success ? r.data : r.error, ok: r.success } }))
+  }
+
   const handleTestSlack = async (): Promise<void> => {
     if (slackToken) await api.credentialSet('slack-test-token', slackToken)
     const r = await api.slackTest('slack-test-token')
@@ -134,7 +181,9 @@ export function ProjectEdit(): JSX.Element {
   const tabs: { id: Tab; label: string }[] = [
     { id: 'git', label: 'Git' },
     { id: 'svn', label: 'SVN' },
+    { id: 'perforce', label: 'Perforce' },
     { id: 'slack', label: 'Slack' },
+    { id: 'calendar', label: 'Google Calendar' },
     { id: 'files', label: 'ファイル監視' }
   ]
 
@@ -305,6 +354,72 @@ export function ProjectEdit(): JSX.Element {
             </>
           )}
 
+          {/* Perforce repos */}
+          {activeTab === 'perforce' && (
+            <>
+              {perforceRepos.map((repo) => (
+                <div key={repo.id} className="border border-border rounded-md p-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-2 text-sm font-medium">
+                      <input
+                        type="checkbox"
+                        checked={repo.enabled}
+                        onChange={(e) => setPerforceRepos((prev) => prev.map((r) => r.id === repo.id ? { ...r, enabled: e.target.checked } : r))}
+                      />
+                      有効
+                    </label>
+                    <button
+                      onClick={() => setPerforceRepos((prev) => prev.filter((r) => r.id !== repo.id))}
+                      className="text-xs text-destructive hover:underline"
+                    >
+                      削除
+                    </button>
+                  </div>
+                  <Field label="P4PORT（例: perforce:1666）">
+                    <input type="text" value={repo.port}
+                      onChange={(e) => setPerforceRepos((prev) => prev.map((r) => r.id === repo.id ? { ...r, port: e.target.value } : r))}
+                      placeholder="perforce:1666"
+                      className="input-field" />
+                  </Field>
+                  <Field label="ユーザー名（P4USER）">
+                    <input type="text" value={repo.username}
+                      onChange={(e) => setPerforceRepos((prev) => prev.map((r) => r.id === repo.id ? { ...r, username: e.target.value } : r))}
+                      placeholder="username"
+                      className="input-field" />
+                  </Field>
+                  <Field label="デポパス（例: //depot/myproject/...）">
+                    <input type="text" value={repo.depotPath}
+                      onChange={(e) => setPerforceRepos((prev) => prev.map((r) => r.id === repo.id ? { ...r, depotPath: e.target.value } : r))}
+                      placeholder="//depot/myproject/..."
+                      className="input-field" />
+                  </Field>
+                  <Field label="パスワード / チケット（任意）">
+                    <input type="password" value={perforcePasswords[repo.id] || ''}
+                      onChange={(e) => setPerforcePasswords((prev) => ({ ...prev, [repo.id]: e.target.value }))}
+                      placeholder="P4PASSWD またはログインチケット"
+                      className="input-field" />
+                  </Field>
+                  <div className="flex items-center gap-3 pt-1 border-t border-border">
+                    <button onClick={() => handleTestP4(repo)}
+                      className="px-3 py-1.5 text-xs border border-border rounded-md hover:bg-accent">
+                      接続テスト
+                    </button>
+                    {testResults[repo.id] && (
+                      <span className={`text-xs ${testResults[repo.id].ok ? 'text-green-600' : 'text-destructive'}`}>
+                        {testResults[repo.id].msg}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+              <p className="text-xs text-muted-foreground">※ p4 コマンドラインクライアントのインストールが必要です</p>
+              <button onClick={() => setPerforceRepos((prev) => [...prev, newPerforceRepo()])}
+                className="px-3 py-2 text-sm border border-border rounded-md hover:bg-accent">
+                + Perforceリポジトリを追加
+              </button>
+            </>
+          )}
+
           {activeTab === 'slack' && (
             <>
               <label className="flex items-center gap-2 text-sm">
@@ -347,9 +462,30 @@ export function ProjectEdit(): JSX.Element {
             </>
           )}
 
+          {activeTab === 'calendar' && (
+            <>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={googleCalendar.enabled}
+                  onChange={(e) => setGoogleCalendar({ ...googleCalendar, enabled: e.target.checked })}
+                />
+                Google Calendar 連携を有効にする
+              </label>
+              {googleCalendar.enabled && (
+                <div className="text-xs text-muted-foreground p-2 bg-secondary/40 rounded space-y-0.5">
+                  <p className="font-medium text-foreground">プロジェクトの判定方法</p>
+                  <p>予定のタイトルにプロジェクト名が含まれていれば検出されます（大文字小文字区別なし）</p>
+                  <p className="font-medium text-foreground">予定の収集について</p>
+                  <p>参加可否未回答または拒否した予定は収集から除外されます</p>
+                </div>
+              )}
+            </>
+          )}
+
           {activeTab === 'files' && (
             <>
-              <p className="text-sm text-muted-foreground">指定したパス以下で変更されたファイルを収集します</p>
+              <p className="text-sm text-muted-foreground">指定したパス以下で日付範囲内に変更されたファイルを収集します</p>
               {filePaths.map((fp, i) => (
                 <div key={i} className="p-3 bg-secondary/30 rounded space-y-2 text-sm">
                   <div className="flex items-center gap-2">

@@ -8,6 +8,8 @@ import { registerFileHandlers } from './ipc/file.handler'
 import { registerClaudeHandlers } from './ipc/claude.handler'
 import { registerMailHandlers } from './ipc/mail.handler'
 import { registerReportHandlers } from './ipc/report.handler'
+import { registerCalendarHandlers } from './ipc/calendar.handler'
+import { registerPerforceHandlers } from './ipc/perforce.handler'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -69,6 +71,8 @@ app.whenReady().then(() => {
   registerFileHandlers()
   registerClaudeHandlers()
   registerMailHandlers()
+  registerCalendarHandlers()
+  registerPerforceHandlers()
 
   createWindow()
 

@@ -6,7 +6,10 @@ import {
   DEFAULT_SYSTEM_PROMPT_DAILY,
   DEFAULT_SYSTEM_PROMPT_WEEKLY,
   DEFAULT_EMAIL_SUBJECT_DAILY,
-  DEFAULT_EMAIL_SUBJECT_WEEKLY
+  DEFAULT_EMAIL_SUBJECT_WEEKLY,
+  DEFAULT_PREAMBLE,
+  DEFAULT_PREAMBLE_WEEKLY,
+  DEFAULT_POSTAMBLE
 } from '@shared/constants'
 
 
@@ -29,6 +32,8 @@ export function Templates(): JSX.Element {
       name: '',
       type,
       isDefault: false,
+      preamble: type === 'daily' ? DEFAULT_PREAMBLE : DEFAULT_PREAMBLE_WEEKLY,
+      postamble: DEFAULT_POSTAMBLE,
       systemPrompt: type === 'daily' ? DEFAULT_SYSTEM_PROMPT_DAILY : DEFAULT_SYSTEM_PROMPT_WEEKLY,
       emailSubjectTemplate: type === 'daily' ? DEFAULT_EMAIL_SUBJECT_DAILY : DEFAULT_EMAIL_SUBJECT_WEEKLY,
       emailTo: []
@@ -89,6 +94,19 @@ export function Templates(): JSX.Element {
           <textarea value={(form.emailTo || []).join('\n')} onChange={(e) => setForm({ ...form, emailTo: e.target.value.split('\n').filter(Boolean) })}
             rows={2} placeholder="manager@example.com"
             className="w-full border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-sm font-medium">前文</label>
+          <p className="text-xs text-muted-foreground">使用可能な変数: {form.type === 'weekly' ? '{{week_range}}' : '{{date}}'}</p>
+          <textarea value={form.preamble || ''} onChange={(e) => setForm({ ...form, preamble: e.target.value })}
+            rows={2} className="w-full border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-y" />
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-sm font-medium">末文</label>
+          <textarea value={form.postamble || ''} onChange={(e) => setForm({ ...form, postamble: e.target.value })}
+            rows={2} className="w-full border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-y" />
         </div>
 
         <div className="space-y-1">

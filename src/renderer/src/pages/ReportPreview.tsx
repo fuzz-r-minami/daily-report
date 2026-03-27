@@ -18,17 +18,30 @@ function stripMarkdown(md: string): string {
     .replace(/`([^`]+)`/g, '$1')               // `code`
 }
 
+function buildSubject(
+  template: { emailSubjectTemplate?: string } | undefined,
+  session: { type: string; dateRange: { start: string; end: string } } | null
+): string {
+  const dateStr = session?.dateRange.start.substring(0, 10) || ''
+  const weekRange = session
+    ? `${session.dateRange.start.substring(0, 10)} - ${session.dateRange.end.substring(0, 10)}`
+    : ''
+  return (template?.emailSubjectTemplate || DEFAULT_EMAIL_SUBJECT_DAILY)
+    .replace('{{date}}', dateStr)
+    .replace('{{week_range}}', weekRange)
+}
 
 export function ReportPreview(): JSX.Element {
   const navigate = useNavigate()
   const { currentSession, setCurrentSession, settings, templates } = useAppStore()
 
+  const template = templates.find((t) => t.id === currentSession?.templateId)
+
   const [text, setText] = useState(currentSession?.formattedText || currentSession?.rawText || '')
+  const [subject, setSubject] = useState(() => buildSubject(template, currentSession ?? null))
   const [isFormatting, setIsFormatting] = useState(false)
   const [status, setStatus] = useState<StatusMsg | null>(null)
   const [viewMode, setViewMode] = useState<'edit' | 'view'>('view')
-
-  const template = templates.find((t) => t.id === currentSession?.templateId)
 
   if (!currentSession) {
     return (
@@ -86,16 +99,8 @@ export function ReportPreview(): JSX.Element {
       setStatus({ ok: false, msg: 'テンプレートにメールの宛先を設定してください' })
       return
     }
-    const dateStr = currentSession.dateRange.start.substring(0, 10)
-    const weekRange = `${currentSession.dateRange.start.substring(0, 10)} - ${currentSession.dateRange.end.substring(0, 10)}`
-    const subject = (template?.emailSubjectTemplate || DEFAULT_EMAIL_SUBJECT_DAILY)
-      .replace('{{date}}', dateStr)
-      .replace('{{week_range}}', weekRange)
-
     const r = await api.mailOpen(toList, subject, stripMarkdown(text))
-    if (r.success) {
-      setCurrentSession({ ...currentSession, status: 'sent', sentAt: new Date().toISOString() })
-    } else {
+    if (!r.success) {
       setStatus({ ok: false, msg: r.error })
     }
   }
@@ -114,6 +119,9 @@ export function ReportPreview(): JSX.Element {
         : { label: 'SVN', unconfigured: true },
       ...(d.svn && !d.svn.error && ((d.svn.uncommittedFiles?.length ?? 0) + (d.svn.untrackedFiles?.length ?? 0)) > 0
         ? [{ label: 'SVN作業中', count: (d.svn.uncommittedFiles?.length ?? 0) + (d.svn.untrackedFiles?.length ?? 0), sub: true }] : []),
+      d.perforce
+        ? { label: 'Perforce', count: d.perforce.changelists.length, error: d.perforce.error }
+        : { label: 'Perforce', unconfigured: true },
       d.slack
         ? { label: 'Slack', count: d.slack.messages.length, error: d.slack.error }
         : { label: 'Slack', unconfigured: true },
@@ -144,9 +152,6 @@ export function ReportPreview(): JSX.Element {
             {typeLabel} プレビュー
             <span className="ml-2 text-sm font-normal text-muted-foreground">{dateLabel}</span>
           </h2>
-          {currentSession.status === 'sent' && (
-            <p className="text-xs text-green-600">✓ 送信済み ({currentSession.sentAt?.substring(0, 16).replace('T', ' ')})</p>
-          )}
         </div>
         <div className="flex gap-2 flex-wrap">
           <button
@@ -173,9 +178,20 @@ export function ReportPreview(): JSX.Element {
             onClick={handleMail}
             className="text-xs py-1.5 px-3 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
           >
-            📧 メール
+            📧 MailTo:
           </button>
         </div>
+      </div>
+
+      {/* Subject bar */}
+      <div className="px-4 py-2 border-b border-border bg-card shrink-0 flex items-center gap-2">
+        <span className="text-xs text-muted-foreground shrink-0">件名</span>
+        <input
+          type="text"
+          value={subject}
+          onChange={(e) => setSubject(e.target.value)}
+          className="flex-1 text-sm bg-transparent border border-border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-ring"
+        />
       </div>
 
       {/* Status bar */}

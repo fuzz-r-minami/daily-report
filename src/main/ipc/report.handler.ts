@@ -3,7 +3,7 @@ import path from 'path'
 import fs from 'fs'
 import { v4 as uuidv4 } from 'uuid'
 import type { IpcResult } from '@shared/types/ipc.types'
-import type { DateRange, ReportSession, CollectedData } from '@shared/types/report.types'
+import type { DateRange, ReportSession, CollectedData, CalendarEvent } from '@shared/types/report.types'
 import type { Project } from '@shared/types/settings.types'
 import * as settingsStore from '../store/settings.store'
 import * as credentialsStore from '../store/credentials.store'
@@ -11,7 +11,11 @@ import { fetchGitCommits } from '../services/git.service'
 import { fetchSvnCommits } from '../services/svn.service'
 import { fetchSlackMessages } from '../services/slack.service'
 import { fetchChangedFiles } from '../services/file-watcher.service'
+import { fetchCalendarEvents, matchesProject } from '../services/calendar.service'
+import { fetchP4Changes } from '../services/perforce.service'
 import { buildRawText } from '../services/report.service'
+import { computeAllocation } from '../services/allocation.service'
+import type { AllocationResult } from '@shared/types/report.types'
 
 const SERVICE_TIMEOUT_MS = 30_000
 
@@ -31,7 +35,7 @@ function sendProgress(
   win: BrowserWindow,
   projectId: string,
   projectName: string,
-  step: 'git' | 'svn' | 'slack' | 'files',
+  step: 'git' | 'svn' | 'perforce' | 'slack' | 'files' | 'calendar',
   status: 'running' | 'done' | 'error' | 'skipped',
   message?: string
 ): void {
@@ -58,6 +62,120 @@ function extractErrorMessage(e: unknown): string {
 function ts(): string {
   return new Date().toLocaleTimeString('ja-JP', { hour12: false })
 }
+
+// ── キャッシュ型 ───────────────────────────────────────────────────
+
+type SlackMessages = NonNullable<CollectedData['slack']>['messages']
+
+/** credentialKey → その token で取得した全チャンネルのメッセージ */
+type SlackPrefetchCache = Map<string, {
+  messages: SlackMessages
+  fetchedAt: string
+  error?: string
+}>
+
+/** カレンダーイベント一括取得結果（null = Calendar 有効プロジェクトなし） */
+type CalendarPrefetchCache = {
+  events: CalendarEvent[]
+  fetchedAt: string
+  error?: string
+} | null
+
+// ── 一括事前取得 ──────────────────────────────────────────────────
+
+/**
+ * Slack: credentialKey ごとに、対象プロジェクト全チャンネルをまとめて1回取得する。
+ */
+async function prefetchSlackAll(
+  win: BrowserWindow,
+  projects: Project[],
+  dateRange: DateRange
+): Promise<SlackPrefetchCache> {
+  const cache: SlackPrefetchCache = new Map()
+
+  // credentialKey → 使用している全 channelId を集約
+  const credToChannels = new Map<string, { channelIds: string[]; baseConfig: NonNullable<Project['slack']> }>()
+  for (const project of projects) {
+    if (!project.slack?.enabled) continue
+    const key = project.slack.credentialKey
+    if (!credToChannels.has(key)) {
+      credToChannels.set(key, { channelIds: [], baseConfig: project.slack })
+    }
+    const entry = credToChannels.get(key)!
+    for (const ch of project.slack.channelIds) {
+      if (!entry.channelIds.includes(ch)) entry.channelIds.push(ch)
+    }
+  }
+
+  if (credToChannels.size === 0) return cache
+
+  for (const [credKey, { channelIds, baseConfig }] of credToChannels) {
+    sendLog(win, `[${ts()}] Slack: 一括取得開始 channels=${channelIds.join(',')} ${dateRange.start}〜${dateRange.end}`)
+    try {
+      const token = await credentialsStore.getCredential(credKey)
+      if (!token) {
+        sendLog(win, `[${ts()}] Slack: トークン未設定のためスキップ (key=${credKey})`)
+        cache.set(credKey, { messages: [], fetchedAt: new Date().toISOString(), error: 'トークン未設定' })
+        continue
+      }
+      const aggregatedConfig = { ...baseConfig, channelIds }
+      const result = await withTimeout(
+        fetchSlackMessages(aggregatedConfig, dateRange, token, (line) => sendLog(win, line)),
+        'Slack'
+      )
+      const replyCount = result.messages.filter((m) => m.text.startsWith('スレッド返信:')).length
+      sendLog(win, `[${ts()}] Slack: 一括取得完了 ${result.messages.length}件（うちスレッド返信=${replyCount}件）`)
+      cache.set(credKey, { messages: result.messages, fetchedAt: result.fetchedAt })
+    } catch (e) {
+      const error = extractErrorMessage(e)
+      sendLog(win, `[${ts()}] Slack: 一括取得エラー ${error}`)
+      cache.set(credKey, { messages: [], fetchedAt: new Date().toISOString(), error })
+    }
+  }
+
+  return cache
+}
+
+/**
+ * Google Calendar: 全有効プロジェクトのカレンダーIDを集約して1回取得する。
+ */
+async function prefetchCalendarAll(
+  win: BrowserWindow,
+  projects: Project[],
+  dateRange: DateRange
+): Promise<CalendarPrefetchCache> {
+  const enabledProjects = projects.filter((p) => p.googleCalendar?.enabled)
+  if (enabledProjects.length === 0) return null
+
+  const settings = settingsStore.getSettings()
+  const gc = settings.googleCalendar
+  if (!gc?.clientId || !gc?.clientSecret) {
+    sendLog(win, `[${ts()}] Calendar: Client ID/Secret 未設定のためスキップ`)
+    return { events: [], fetchedAt: new Date().toISOString(), error: 'Client ID/Secret 未設定' }
+  }
+
+  const refreshToken = await credentialsStore.getCredential(gc.credentialKey || 'google-calendar-refresh-token')
+  if (!refreshToken) {
+    sendLog(win, `[${ts()}] Calendar: リフレッシュトークン未設定のためスキップ`)
+    return { events: [], fetchedAt: new Date().toISOString(), error: 'リフレッシュトークン未設定' }
+  }
+
+  sendLog(win, `[${ts()}] Calendar: 一括取得開始 calendar=primary ${dateRange.start}〜${dateRange.end}`)
+  try {
+    const events = await withTimeout(
+      fetchCalendarEvents(gc.clientId, gc.clientSecret, refreshToken, ['primary'], dateRange),
+      'Calendar'
+    )
+    sendLog(win, `[${ts()}] Calendar: 一括取得完了 ${events.length}件`)
+    return { events, fetchedAt: new Date().toISOString() }
+  } catch (e) {
+    const error = extractErrorMessage(e)
+    sendLog(win, `[${ts()}] Calendar: 一括取得エラー ${error}`)
+    return { events: [], fetchedAt: new Date().toISOString(), error }
+  }
+}
+
+// ── プロジェクト別データ収集 ──────────────────────────────────────
 
 async function collectGitData(
   win: BrowserWindow,
@@ -132,34 +250,35 @@ async function collectSvnData(
   return { commits: allCommits, fetchedAt: new Date().toISOString(), error, uncommittedFiles: allUncommitted, untrackedFiles: allUntracked }
 }
 
-async function collectSlackData(
+/** キャッシュからこのプロジェクトの Slack データを組み立てる（API 呼び出しなし） */
+function collectSlackData(
   win: BrowserWindow,
   project: Project,
-  dateRange: DateRange
-): Promise<CollectedData['slack']> {
+  cache: SlackPrefetchCache
+): CollectedData['slack'] {
   if (!project.slack?.enabled) {
     sendProgress(win, project.id, project.name, 'slack', 'skipped')
     return undefined
   }
 
   sendProgress(win, project.id, project.name, 'slack', 'running')
-  try {
-    const token = await credentialsStore.getCredential(project.slack.credentialKey)
-    if (!token) {
-      sendLog(win, `[${ts()}] Slack: トークン未設定のためスキップ`)
-      sendProgress(win, project.id, project.name, 'slack', 'error', 'トークン未設定')
-      return undefined
-    }
-    sendLog(win, `[${ts()}] Slack: channels=${project.slack.channelIds.join(',')} ${dateRange.start}〜${dateRange.end}`)
-    const result = await withTimeout(fetchSlackMessages(project.slack, dateRange, token, (line) => sendLog(win, line)), 'Slack')
-    sendLog(win, `[${ts()}] Slack: ${result.messages.length}件取得（うちスレッド返信=${result.messages.filter(m => m.text.startsWith('[スレッド返信]')).length}件）`)
-    sendProgress(win, project.id, project.name, 'slack', 'done', `${result.messages.length}件取得`)
-    return result
-  } catch (e) {
-    sendLog(win, `[${ts()}] Slack エラー: ${String(e)}`)
-    sendProgress(win, project.id, project.name, 'slack', 'error', String(e))
-    return { messages: [], fetchedAt: new Date().toISOString(), error: String(e) }
+
+  const cached = cache.get(project.slack.credentialKey)
+  if (!cached) {
+    sendProgress(win, project.id, project.name, 'slack', 'skipped')
+    return undefined
   }
+  if (cached.error) {
+    sendProgress(win, project.id, project.name, 'slack', 'error', cached.error)
+    return { messages: [], fetchedAt: cached.fetchedAt, error: cached.error }
+  }
+
+  // このプロジェクトのチャンネルに絞り込む
+  const channelIds = new Set(project.slack.channelIds)
+  const messages = cached.messages.filter((m) => channelIds.has(m.channelId))
+  sendLog(win, `[${ts()}] Slack [${project.name}]: キャッシュから ${messages.length}件抽出`)
+  sendProgress(win, project.id, project.name, 'slack', 'done', `${messages.length}件取得`)
+  return { messages, fetchedAt: cached.fetchedAt }
 }
 
 async function collectFileData(
@@ -186,6 +305,74 @@ async function collectFileData(
   }
 }
 
+async function collectPerforceData(
+  win: BrowserWindow,
+  project: Project,
+  dateRange: DateRange
+): Promise<CollectedData['perforce']> {
+  const enabledRepos = (project.perforceRepos || []).filter((r) => r.enabled)
+  if (enabledRepos.length === 0) {
+    sendProgress(win, project.id, project.name, 'perforce', 'skipped')
+    return undefined
+  }
+
+  sendProgress(win, project.id, project.name, 'perforce', 'running')
+  const allChangelists: NonNullable<CollectedData['perforce']>['changelists'] = []
+  let error: string | undefined
+
+  for (const repo of enabledRepos) {
+    sendLog(win, `[${ts()}] Perforce: p4 changes ${repo.port} user=${repo.username} ${repo.depotPath} ${dateRange.start}〜${dateRange.end}`)
+    try {
+      const password = repo.credentialKey
+        ? (await credentialsStore.getCredential(repo.credentialKey)) ?? ''
+        : ''
+      const result = await withTimeout(
+        fetchP4Changes(repo, dateRange, password, (line) => sendLog(win, line)),
+        'Perforce'
+      )
+      allChangelists.push(...result.changelists)
+      sendLog(win, `[${ts()}] Perforce: ${repo.depotPath} → ${result.changelists.length}件取得`)
+    } catch (e) {
+      error = extractErrorMessage(e)
+      sendLog(win, `[${ts()}] Perforce エラー: ${repo.depotPath}`)
+      sendLog(win, `  ${error}`)
+    }
+  }
+  allChangelists.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  sendProgress(win, project.id, project.name, 'perforce', error ? 'error' : 'done', `${allChangelists.length}件取得`)
+  return { changelists: allChangelists, fetchedAt: new Date().toISOString(), error }
+}
+
+/** キャッシュからこのプロジェクトに一致するカレンダーイベントを抽出する（API 呼び出しなし） */
+function collectCalendarData(
+  win: BrowserWindow,
+  project: Project,
+  cache: CalendarPrefetchCache
+): CollectedData['calendar'] {
+  if (!project.googleCalendar?.enabled) {
+    sendProgress(win, project.id, project.name, 'calendar', 'skipped')
+    return undefined
+  }
+
+  sendProgress(win, project.id, project.name, 'calendar', 'running')
+
+  if (!cache) {
+    sendProgress(win, project.id, project.name, 'calendar', 'skipped')
+    return undefined
+  }
+  if (cache.error) {
+    sendProgress(win, project.id, project.name, 'calendar', 'error', cache.error)
+    return { events: [], fetchedAt: cache.fetchedAt, error: cache.error }
+  }
+
+  const matched = cache.events.filter((e) => matchesProject(e.summary, project.name))
+  sendLog(win, `[${ts()}] Calendar [${project.name}]: キャッシュから ${matched.length}件抽出`)
+  sendProgress(win, project.id, project.name, 'calendar', 'done', `${matched.length}件取得`)
+  return { events: matched, fetchedAt: cache.fetchedAt }
+}
+
+// ── IPC ハンドラー登録 ────────────────────────────────────────────
+
 export function registerReportHandlers(win: BrowserWindow): void {
   ipcMain.handle(
     'report:generate',
@@ -197,26 +384,41 @@ export function registerReportHandlers(win: BrowserWindow): void {
       templateId: string
     ): Promise<IpcResult<ReportSession>> => {
       try {
+        const allProjects = projectIds
+          .map((id) => settingsStore.getProjectById(id))
+          .filter((p): p is Project => p !== undefined)
+
+        // Slack・Calendar を並列で一括取得してからプロジェクトループへ
+        sendLog(win, `[${ts()}] === 一括データ取得フェーズ ===`)
+        const [slackCache, calendarCache] = await Promise.all([
+          prefetchSlackAll(win, allProjects, dateRange),
+          prefetchCalendarAll(win, allProjects, dateRange)
+        ])
+        sendLog(win, `[${ts()}] === プロジェクト別収集フェーズ ===`)
+
         const collectedData: CollectedData[] = []
 
-        for (const projectId of projectIds) {
-          const project = settingsStore.getProjectById(projectId)
-          if (!project) continue
-
+        for (const project of allProjects) {
           const data: CollectedData = {
-            projectId,
+            projectId: project.id,
             projectName: project.name,
             dateRange,
             git: await collectGitData(win, project, dateRange),
             svn: await collectSvnData(win, project, dateRange),
-            slack: await collectSlackData(win, project, dateRange),
-            files: await collectFileData(win, project, dateRange)
+            perforce: await collectPerforceData(win, project, dateRange),
+            slack: collectSlackData(win, project, slackCache),
+            files: await collectFileData(win, project, dateRange),
+            calendar: collectCalendarData(win, project, calendarCache)
           }
-
           collectedData.push(data)
         }
 
-        const rawText = buildRawText(collectedData, dateRange, type)
+        const template = settingsStore.getSettings().templates.find((t) => t.id === templateId)
+        const rawText = buildRawText(
+          collectedData, dateRange, type,
+          template?.preamble ?? '',
+          template?.postamble ?? ''
+        )
         const session: ReportSession = {
           id: uuidv4(),
           type,
@@ -231,6 +433,57 @@ export function registerReportHandlers(win: BrowserWindow): void {
         }
 
         return { success: true, data: session }
+      } catch (e) {
+        return { success: false, error: String(e) }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    'report:allocation',
+    async (
+      _,
+      projectIds: string[],
+      yearMonth: string   // 'YYYY-MM' 形式
+    ): Promise<IpcResult<AllocationResult[]>> => {
+      try {
+        const [year, month] = yearMonth.split('-').map(Number)
+        const lastDay = new Date(year, month, 0).getDate()
+        const dateRange: DateRange = {
+          start: `${yearMonth}-01`,
+          end: `${yearMonth}-${String(lastDay).padStart(2, '0')}`
+        }
+
+        const allProjects = projectIds
+          .map((id) => settingsStore.getProjectById(id))
+          .filter((p): p is Project => p !== undefined)
+
+        sendLog(win, `[${ts()}] === 按分計算 一括データ取得 ${dateRange.start}〜${dateRange.end} ===`)
+        const [slackCache, calendarCache] = await Promise.all([
+          prefetchSlackAll(win, allProjects, dateRange),
+          prefetchCalendarAll(win, allProjects, dateRange)
+        ])
+        sendLog(win, `[${ts()}] === 按分計算 プロジェクト別収集 ===`)
+
+        const collectedData: CollectedData[] = []
+        for (const project of allProjects) {
+          const data: CollectedData = {
+            projectId: project.id,
+            projectName: project.name,
+            dateRange,
+            git: await collectGitData(win, project, dateRange),
+            svn: await collectSvnData(win, project, dateRange),
+            perforce: await collectPerforceData(win, project, dateRange),
+            slack: collectSlackData(win, project, slackCache),
+            calendar: collectCalendarData(win, project, calendarCache)
+            // files は按分計算に含めない
+          }
+          collectedData.push(data)
+        }
+
+        const results = computeAllocation(collectedData)
+        sendLog(win, `[${ts()}] === 按分計算 完了 ===`)
+        return { success: true, data: results }
       } catch (e) {
         return { success: false, error: String(e) }
       }

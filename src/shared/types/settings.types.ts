@@ -2,7 +2,10 @@ import {
   DEFAULT_SYSTEM_PROMPT_DAILY,
   DEFAULT_SYSTEM_PROMPT_WEEKLY,
   DEFAULT_EMAIL_SUBJECT_DAILY,
-  DEFAULT_EMAIL_SUBJECT_WEEKLY
+  DEFAULT_EMAIL_SUBJECT_WEEKLY,
+  DEFAULT_PREAMBLE,
+  DEFAULT_PREAMBLE_WEEKLY,
+  DEFAULT_POSTAMBLE
 } from '../constants'
 
 export interface AppSettings {
@@ -11,6 +14,7 @@ export interface AppSettings {
   projects: Project[]
   templates: Template[]
   claude: ClaudeSettings
+  googleCalendar?: GoogleCalendarSettings
 }
 
 export interface GeneralSettings {
@@ -26,7 +30,9 @@ export interface Project {
   color: string
   gitRepos?: GitProjectConfig[]
   svnRepos?: SvnProjectConfig[]
+  perforceRepos?: PerforceProjectConfig[]
   slack?: SlackProjectConfig
+  googleCalendar?: GoogleCalendarProjectConfig
   filePaths?: FilePathConfig[]
   createdAt: string
   updatedAt: string
@@ -50,6 +56,15 @@ export interface SvnProjectConfig {
   username?: string    // コミットの絞り込み用（認証は行わない）
 }
 
+export interface PerforceProjectConfig {
+  id: string
+  enabled: boolean
+  port: string         // P4PORT 例: perforce:1666
+  username: string     // P4USER
+  depotPath: string    // デポパス 例: //depot/myproject/...
+  credentialKey: string  // P4PASSWD / チケット（keytar）
+}
+
 export interface SlackProjectConfig {
   enabled: boolean
   workspaceId: string
@@ -69,6 +84,8 @@ export interface Template {
   name: string
   type: 'daily' | 'weekly'
   isDefault: boolean
+  preamble: string
+  postamble: string
   systemPrompt: string
   emailSubjectTemplate: string
   emailTo: string[]
@@ -83,12 +100,22 @@ export interface ClaudeSettings {
   credentialKey: string
 }
 
+export interface GoogleCalendarSettings {
+  clientId: string
+  clientSecret: string
+  credentialKey: string  // refresh token の keytar キー
+}
+
+export interface GoogleCalendarProjectConfig {
+  enabled: boolean
+}
+
 export const DEFAULT_SETTINGS: AppSettings = {
   version: '1.0.0',
   general: {
     dataDir: '',
     logRetentionDays: 30,
-    defaultReportType: 'daily'
+    defaultReportType: 'daily',
   },
   projects: [],
   templates: [
@@ -97,6 +124,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
       name: 'デフォルト日報',
       type: 'daily',
       isDefault: true,
+      preamble: DEFAULT_PREAMBLE,
+      postamble: DEFAULT_POSTAMBLE,
       systemPrompt: DEFAULT_SYSTEM_PROMPT_DAILY,
       emailSubjectTemplate: DEFAULT_EMAIL_SUBJECT_DAILY,
       emailTo: [],
@@ -108,6 +137,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
       name: 'デフォルト週報',
       type: 'weekly',
       isDefault: true,
+      preamble: DEFAULT_PREAMBLE_WEEKLY,
+      postamble: DEFAULT_POSTAMBLE,
       systemPrompt: DEFAULT_SYSTEM_PROMPT_WEEKLY,
       emailSubjectTemplate: DEFAULT_EMAIL_SUBJECT_WEEKLY,
       emailTo: [],

@@ -1,4 +1,4 @@
-export const APP_NAME = '日報・週報ジェネレーター'
+export const APP_NAME = '日報ジェネレーター'
 export const APP_VERSION = '1.0.0'
 
 export const PROJECT_COLORS = [
@@ -20,16 +20,29 @@ export const CLAUDE_MODELS = [
   { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5 (高速)' }
 ]
 
-export const DEFAULT_EMAIL_SUBJECT_DAILY = '【日報】{{date}}'
-export const DEFAULT_EMAIL_SUBJECT_WEEKLY = '【週報】{{week_range}}'
+export const DEFAULT_EMAIL_SUBJECT_DAILY = '【作業報告】{{date}} ○○'
+export const DEFAULT_EMAIL_SUBJECT_WEEKLY = '【週報】{{week_range}} ○○'
+
+export const DEFAULT_PREAMBLE = 'お疲れ様です。○○です。\n{{date}} の作業報告になります。'
+export const DEFAULT_PREAMBLE_WEEKLY = 'お疲れ様です。○○です。\n{{week_range}} の作業報告になります。'
+export const DEFAULT_POSTAMBLE = '以上、よろしくお願いいたします。'
 
 export const DEFAULT_SYSTEM_PROMPT_DAILY =
-  'あなたは日報作成アシスタントです。提供された情報を元に、元のフォーマットを保ったまま「作業内容」欄を完成させてください。リンク先から作業内容の文脈を補完し、箇条書きを活用して重複する内容はまとめてください。出力された全文をテキストとして使用するので、余計な会話文などは含まないようにしてください。'
+  `あなたは日報作成アシスタントです。
+提供された情報を元に、元のフォーマットを保ったまま「作業内容」欄を完成させてください。
+リンク先から作業内容の文脈を補完し、箇条書きを活用して重複する内容はまとめてください。
+ファイル名などをそのまま書かずに、Slackの会話やコミットコメントから推察できる内容を日本語の文章で記述してください。
+出力された全文をテキストとして使用するので、余計な会話文などは含まないようにしてください。`
 
 export const DEFAULT_SYSTEM_PROMPT_WEEKLY =
-  'あなたは週報作成アシスタントです。提供された情報を元に、元のフォーマットを保ったまま「作業内容」欄を完成させてください。リンク先から作業内容の文脈を補完し、箇条書きを活用して重複する内容はまとめてください。出力された全文をテキストとして使用するので、余計な会話文などは含まないようにしてください。'
+  `あなたは週報作成アシスタントです。
+提供された情報を元に、元のフォーマットを保ったまま「作業内容」欄を完成させてください。
+リンク先から作業内容の文脈を補完し、箇条書きを活用して重複する内容はまとめてください。
+ファイル名などをそのまま書かずに、Slackの会話やコミットコメントから推察できる内容を日本語の文章で記述してください。
+出力された全文をテキストとして使用するので、余計な会話文などは含まないようにしてください。`
 
 export const GIT_MAX_COMMITS = 200
 export const SVN_MAX_COMMITS = 200
+export const PERFORCE_MAX_CHANGES = 200
 export const SLACK_MAX_MESSAGES = 500
 export const FILE_MAX_ENTRIES = 5000

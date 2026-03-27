@@ -11,11 +11,6 @@ const navItems = [
 export function Sidebar(): JSX.Element {
   return (
     <aside className="w-52 shrink-0 border-r border-border bg-secondary/30 flex flex-col">
-      <div className="p-4 border-b border-border">
-        <h1 className="text-sm font-bold text-foreground leading-tight">
-          日報・週報<br />ジェネレーター
-        </h1>
-      </div>
       <nav className="flex-1 p-2 space-y-1">
         {navItems.map((item) => (
           <NavLink

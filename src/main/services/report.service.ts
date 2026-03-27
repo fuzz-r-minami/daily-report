@@ -52,29 +52,33 @@ function appendVcsSection(
   lines.push('')
 }
 
+function resolvePlaceholders(text: string, dateRange: DateRange): string {
+  const date = dateRange.start.substring(0, 10)
+  const weekRange = `${dateRange.start.substring(0, 10)} 〜 ${dateRange.end.substring(0, 10)}`
+  return text
+    .replace(/\{\{date\}\}/g, date)
+    .replace(/\{\{week_range\}\}/g, weekRange)
+}
+
 export function buildRawText(
   collectedData: CollectedData[],
   dateRange: DateRange,
-  type: 'daily' | 'weekly'
+  _type: 'daily' | 'weekly',
+  preamble: string = '',
+  postamble: string = ''
 ): string {
-  const typeLabel = type === 'daily' ? '日報' : '週報'
-  const projectNames = collectedData.map((d) => d.projectName).join(', ')
-  const dateLabel =
-    type === 'daily'
-      ? dateRange.start.substring(0, 10)
-      : `${dateRange.start.substring(0, 10)} 〜 ${dateRange.end.substring(0, 10)}`
+  const lines: string[] = []
 
-  const lines: string[] = [
-    `# ${typeLabel} (対象期間: ${dateLabel} 対象プロジェクト: ${projectNames})`
-  ]
+  if (preamble.trim()) {
+    lines.push(resolvePlaceholders(preamble, dateRange))
+    lines.push('')
+  }
 
-  for (const data of collectedData) {
-    lines.push('---')
+  for (const data of collectedData) {    
     lines.push(`## ${data.projectName}`)
     lines.push('')
     lines.push(`### 作業内容`)
-    lines.push(`- ここに作業したことを簡潔に書きます`)
-    lines.push(`- ここに作業したことを簡潔に書きます`)
+    lines.push(`- TBA`)
     lines.push('')
     lines.push(`### 履歴`)
     // Git
@@ -131,6 +135,46 @@ export function buildRawText(
         lines.push('')
       }
     }
+
+    // Perforce
+    if (data.perforce) {
+      if (data.perforce.error) {
+        lines.push(`#### Perforceチェンジリスト (取得エラー: ${data.perforce.error})`)
+        lines.push('')
+      } else if (data.perforce.changelists.length > 0) {
+        lines.push(`#### Perforceチェンジリスト (${data.perforce.changelists.length}件)`)
+        for (const cl of data.perforce.changelists) {
+          const date = formatDate(new Date(cl.date))
+          const firstMsg = cl.description.split('\n')[0].trim()
+          lines.push(`- ${date} | CL${cl.change} | ${firstMsg}`)
+        }
+        lines.push('')
+      }
+    }
+
+    // Calendar
+    if (data.calendar) {
+      if (data.calendar.error) {
+        lines.push(`#### 会議 (取得エラー: ${data.calendar.error})`)
+        lines.push('')
+      } else if (data.calendar.events.length > 0) {
+        lines.push(`#### 会議（${data.calendar.events.length}件）`)
+        for (const e of data.calendar.events) {
+          const date = formatDate(new Date(e.start))
+          const label = `${date} | ${e.summary}`
+          const linked = e.htmlLink ? `[${label}](${e.htmlLink})` : label
+          lines.push(`- ${linked}`)
+        }
+        lines.push('')
+      }
+    }
+
+    lines.push('---')
+  }
+
+  if (postamble.trim()) {
+    lines.push('')
+    lines.push(resolvePlaceholders(postamble, dateRange))
   }
 
   return lines.join('\n')

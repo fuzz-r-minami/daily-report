@@ -18,10 +18,21 @@ export function Settings(): JSX.Element {
   // Data dir
   const [dataDir, setDataDir] = useState('')
 
+  // Google Calendar
+  const [gcClientId, setGcClientId] = useState('')
+  const [gcClientSecret, setGcClientSecret] = useState('')
+  const [gcStatus, setGcStatus] = useState<StatusMsg | null>(null)
+  const [gcSaving, setGcSaving] = useState(false)
+  const [gcAuthing, setGcAuthing] = useState(false)
+
   useEffect(() => {
     if (!settings) return
     setClaudeEnabled(settings.claude.enabled)
     setDataDir(settings.general.dataDir)
+    if (settings.googleCalendar) {
+      setGcClientId(settings.googleCalendar.clientId)
+      setGcClientSecret(settings.googleCalendar.clientSecret)
+    }
 
     api.svnCheckInstall().then((r) => {
       setSvnVersion(r.success ? r.data : null)
@@ -63,6 +74,48 @@ export function Settings(): JSX.Element {
     api.settingsOpenDataDir()
   }
 
+  const handleSaveGoogleCalendar = async (): Promise<void> => {
+    if (!settings) return
+    setGcSaving(true)
+    setGcStatus(null)
+    try {
+      const newSettings = {
+        ...settings,
+        googleCalendar: {
+          clientId: gcClientId.trim(),
+          clientSecret: gcClientSecret.trim(),
+          credentialKey: settings.googleCalendar?.credentialKey || 'google-calendar-refresh-token'
+        }
+      }
+      const r = await api.settingsSave(newSettings)
+      if (r.success) {
+        setSettings(newSettings)
+        setGcStatus({ ok: true, msg: '保存しました' })
+      } else {
+        setGcStatus({ ok: false, msg: r.error })
+      }
+    } finally {
+      setGcSaving(false)
+    }
+  }
+
+  const handleGoogleCalendarAuth = async (): Promise<void> => {
+    setGcAuthing(true)
+    setGcStatus(null)
+    try {
+      const r = await api.calendarStartAuth()
+      setGcStatus({ ok: r.success, msg: r.success ? r.data : r.error })
+    } finally {
+      setGcAuthing(false)
+    }
+  }
+
+  const handleTestGoogleCalendar = async (): Promise<void> => {
+    setGcStatus(null)
+    const r = await api.calendarTest()
+    setGcStatus({ ok: r.success, msg: r.success ? r.data : r.error })
+  }
+
   return (
     <div className="p-6 max-w-2xl mx-auto space-y-6">
       <h2 className="text-xl font-bold">設定</h2>
@@ -94,6 +147,48 @@ export function Settings(): JSX.Element {
           {claudeStatus && (
             <span className={`text-xs ${claudeStatus.ok ? 'text-green-600' : 'text-destructive'}`}>
               {claudeStatus.ok ? '✓' : '✗'} {claudeStatus.msg}
+            </span>
+          )}
+        </div>
+      </section>
+
+      {/* Google Calendar */}
+      <section className="card space-y-4">
+        <h3 className="section-title">📅 Google Calendar 連携</h3>
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">Client ID</label>
+          <input
+            type="text"
+            value={gcClientId}
+            onChange={(e) => setGcClientId(e.target.value)}
+            placeholder="xxxx.apps.googleusercontent.com"
+            className="input-field"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">Client Secret</label>
+          <input
+            type="password"
+            value={gcClientSecret}
+            onChange={(e) => setGcClientSecret(e.target.value)}
+            placeholder="GOCSPX-..."
+            className="input-field"
+          />
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <button onClick={handleSaveGoogleCalendar} disabled={gcSaving} className="btn-primary text-xs py-1.5">
+            {gcSaving ? '保存中...' : '保存'}
+          </button>
+          <button onClick={handleGoogleCalendarAuth} disabled={gcAuthing} className="btn-secondary text-xs py-1.5">
+            {gcAuthing ? '認証中...' : 'Googleアカウントで認証'}
+          </button>
+          <button onClick={handleTestGoogleCalendar} className="btn-secondary text-xs py-1.5">
+            接続テスト
+          </button>
+          {gcStatus && (
+            <span className={`text-xs ${gcStatus.ok ? 'text-green-600' : 'text-destructive'}`}>
+              {gcStatus.ok ? '✓' : '✗'} {gcStatus.msg}
             </span>
           )}
         </div>

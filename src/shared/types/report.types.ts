@@ -31,6 +31,23 @@ export interface SlackMessage {
   permalink?: string
 }
 
+export interface PerforceChangelist {
+  change: number
+  date: string    // ISO
+  user: string
+  client: string
+  description: string
+}
+
+export interface CalendarEvent {
+  id: string
+  summary: string
+  start: string    // ISO datetime (開始)
+  end: string      // ISO datetime (終了)
+  htmlLink: string // Google カレンダー上のリンク
+  calendarId: string
+}
+
 export interface ChangedFile {
   path: string
   modifiedAt: string
@@ -66,6 +83,16 @@ export interface CollectedData {
     fetchedAt: string
     error?: string
   }
+  calendar?: {
+    events: CalendarEvent[]
+    fetchedAt: string
+    error?: string
+  }
+  perforce?: {
+    changelists: PerforceChangelist[]
+    fetchedAt: string
+    error?: string
+  }
 }
 
 export interface ReportSession {
@@ -82,10 +109,16 @@ export interface ReportSession {
   sentAt?: string
 }
 
+export interface AllocationResult {
+  projectId: string
+  projectName: string
+  days: number  // 小数第1位まで（例: 10.5）
+}
+
 export type CollectionProgress = {
   projectId: string
   projectName: string
-  step: 'git' | 'svn' | 'slack' | 'files'
+  step: 'git' | 'svn' | 'perforce' | 'slack' | 'files' | 'calendar'
   status: 'pending' | 'running' | 'done' | 'error' | 'skipped'
   message?: string
 }

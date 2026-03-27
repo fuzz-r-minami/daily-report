@@ -35,6 +35,12 @@ const api = {
     ipcRenderer.invoke('svn:test', repoUrl),
   svnFetch: (projectId: string, dateRange: unknown) => ipcRenderer.invoke('svn:fetch', projectId, dateRange),
 
+  // Perforce
+  p4CheckInstall: () => ipcRenderer.invoke('p4:checkInstall'),
+  p4Test: (port: string, username: string, credentialKey: string) =>
+    ipcRenderer.invoke('p4:test', port, username, credentialKey),
+  p4Fetch: (projectId: string, dateRange: unknown) => ipcRenderer.invoke('p4:fetch', projectId, dateRange),
+
   // Slack
   slackTest: (credentialKey: string) => ipcRenderer.invoke('slack:test', credentialKey),
   slackFetchChannels: (credentialKey: string) => ipcRenderer.invoke('slack:fetchChannels', credentialKey),
@@ -48,11 +54,17 @@ const api = {
   claudeTest: (credentialKey: string) => ipcRenderer.invoke('claude:test', credentialKey),
   claudeFormat: (rawText: string, templateId: string) => ipcRenderer.invoke('claude:format', rawText, templateId),
 
+  // Google Calendar
+  calendarStartAuth: () => ipcRenderer.invoke('calendar:startAuth'),
+  calendarTest: () => ipcRenderer.invoke('calendar:test'),
+
   // Mail
   mailOpen: (to: string[], subject: string, body: string) =>
     ipcRenderer.invoke('mail:open', to, subject, body),
 
   // Report
+  reportAllocation: (projectIds: string[], yearMonth: string) =>
+    ipcRenderer.invoke('report:allocation', projectIds, yearMonth),
   reportGenerate: (
     projectIds: string[],
     dateRange: unknown,
