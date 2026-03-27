@@ -184,7 +184,7 @@ export function ReportPreview(): JSX.Element {
             className="text-xs py-1.5 px-3 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
             title={(template?.emailTo || []).filter(Boolean).join('\n') || '送信先未設定'}
           >
-            📧 MailTo:
+            📧 mailto:
           </button>
         </div>
       </div>
