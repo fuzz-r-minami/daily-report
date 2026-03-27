@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '../store/app.store'
 import { api } from '../lib/api'
@@ -15,16 +15,23 @@ const STEP_LABELS: Record<string, string> = {
   calendar: 'Calendar'
 }
 
-type Mode = 'daily' | 'weekly' | 'allocation'
+type Mode = 'daily' | 'weekly' | 'monthly' | 'allocation'
 
 export function Dashboard(): JSX.Element {
   const navigate = useNavigate()
-  const { projects, templates, currentSession, setCurrentSession, clearProgress, clearLogs, progressLog, logs, settings } = useAppStore()
+  const {
+    projects, templates, currentSession, setCurrentSession,
+    clearProgress, clearLogs, progressLog, logs, settings,
+    isGenerating, isAllocating, setIsGenerating, setIsAllocating
+  } = useAppStore()
 
+  const mounted = useRef(true)
   useEffect(() => {
+    mounted.current = true
     if (currentSession) {
       navigate('/report-preview', { replace: true })
     }
+    return () => { mounted.current = false }
   }, [])
 
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([])
@@ -34,8 +41,6 @@ export function Dashboard(): JSX.Element {
   const [selectedDate, setSelectedDate] = useState(todayIso())
   const [selectedMonth, setSelectedMonth] = useState(todayIso().substring(0, 7))
   const [selectedTemplateId, setSelectedTemplateId] = useState('')
-  const [isGenerating, setIsGenerating] = useState(false)
-  const [isAllocating, setIsAllocating] = useState(false)
   const [allocationResults, setAllocationResults] = useState<AllocationResult[] | null>(null)
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -44,8 +49,15 @@ export function Dashboard(): JSX.Element {
     if (mode === 'daily') {
       return { start: selectedDate, end: selectedDate }
     }
+    if (mode === 'monthly') {
+      const [y, m] = selectedMonth.split('-').map(Number)
+      const start = `${selectedMonth}-01`
+      const lastDay = new Date(y, m, 0).getDate()
+      const end = `${selectedMonth}-${String(lastDay).padStart(2, '0')}`
+      return { start, end }
+    }
     return { start: addDays(selectedDate, -6), end: selectedDate }
-  }, [mode, selectedDate])
+  }, [mode, selectedDate, selectedMonth])
 
   const reportType = mode === 'allocation' ? 'daily' : mode
   const filteredTemplates = templates.filter((t) => t.type === reportType)
@@ -85,6 +97,7 @@ export function Dashboard(): JSX.Element {
         reportType,
         effectiveTemplateId
       )
+      if (!mounted.current) return
       if (result.success) {
         setCurrentSession(result.data)
         navigate('/report-preview')
@@ -110,6 +123,7 @@ export function Dashboard(): JSX.Element {
 
     try {
       const result = await api.reportAllocation(selectedProjectIds, selectedMonth)
+      if (!mounted.current) return
       if (result.success) {
         setAllocationResults(result.data)
         setCopied(false)
@@ -154,7 +168,7 @@ export function Dashboard(): JSX.Element {
       <section className="card space-y-3">
         <h3 className="section-title">種別と期間</h3>
         <div className="flex gap-2">
-          {(['daily', 'weekly', 'allocation'] as const).map((m) => (
+          {(['daily', 'weekly', 'monthly', 'allocation'] as const).map((m) => (
             <button
               key={m}
               onClick={() => {
@@ -169,12 +183,12 @@ export function Dashboard(): JSX.Element {
                   : 'bg-background border-border hover:bg-accent'
               }`}
             >
-              {m === 'daily' ? '📅 日報' : m === 'weekly' ? '📆 週報' : '📊 按分計算'}
+              {m === 'daily' ? '📅 日報' : m === 'weekly' ? '📆 週報' : m === 'monthly' ? '🗓 月報' : '📊 按分計算'}
             </button>
           ))}
         </div>
 
-        {mode === 'allocation' ? (
+        {mode === 'allocation' || mode === 'monthly' ? (
           <div className="space-y-1">
             <label className="field-label">対象月</label>
             <input
@@ -378,6 +392,18 @@ export function Dashboard(): JSX.Element {
         </section>
       )}
 
+      {currentSession && !isGenerating && (
+        <div className="flex items-center justify-between px-4 py-3 rounded-md border border-green-500/50 bg-green-50 dark:bg-green-950/30">
+          <span className="text-sm text-green-700 dark:text-green-400">レポートの収集が完了しています</span>
+          <button
+            onClick={() => navigate('/report-preview')}
+            className="text-xs px-3 py-1.5 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+          >
+            レポートを表示 →
+          </button>
+        </div>
+      )}
+
       {error && (
         <p className="text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-md">{error}</p>
       )}
@@ -404,7 +430,9 @@ export function Dashboard(): JSX.Element {
               ? '収集中...'
               : mode === 'daily'
                 ? `📅 日報を生成（${selectedProjectIds.length}件）`
-                : `📆 週報を生成（${selectedProjectIds.length}件）`}
+                : mode === 'weekly'
+                  ? `📆 週報を生成（${selectedProjectIds.length}件）`
+                  : `🗓 月報を生成（${selectedProjectIds.length}件）`}
           </button>
         )}
         {(isGenerating || isAllocating) && (

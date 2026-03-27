@@ -76,7 +76,7 @@ export interface IpcReportApi {
   'report:generate': (
     projectIds: string[],
     dateRange: DateRange,
-    type: 'daily' | 'weekly',
+    type: 'daily' | 'weekly' | 'monthly',
     templateId: string
   ) => Promise<IpcResult<ReportSession>>
   'report:save': (text: string, filename: string) => Promise<IpcResult<string>>

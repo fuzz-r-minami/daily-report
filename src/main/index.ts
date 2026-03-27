@@ -1,5 +1,6 @@
-import { app, BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow, shell, ipcMain } from 'electron'
 import { join } from 'path'
+import { autoUpdater } from 'electron-updater'
 import { registerSettingsHandlers } from './ipc/settings.handler'
 import { registerGitHandlers } from './ipc/git.handler'
 import { registerSvnHandlers } from './ipc/svn.handler'
@@ -78,6 +79,37 @@ app.whenReady().then(() => {
 
   if (mainWindow) {
     registerReportHandlers(mainWindow)
+  }
+
+  // Auto updater (packaged build only)
+  if (app.isPackaged) {
+    autoUpdater.autoDownload = false
+
+    autoUpdater.on('checking-for-update', () => {
+      mainWindow?.webContents.send('update:status', { type: 'checking' })
+    })
+    autoUpdater.on('update-available', (info) => {
+      mainWindow?.webContents.send('update:status', { type: 'available', version: info.version })
+    })
+    autoUpdater.on('update-not-available', () => {
+      mainWindow?.webContents.send('update:status', { type: 'not-available' })
+    })
+    autoUpdater.on('download-progress', (p) => {
+      mainWindow?.webContents.send('update:status', { type: 'downloading', percent: Math.floor(p.percent) })
+    })
+    autoUpdater.on('update-downloaded', () => {
+      mainWindow?.webContents.send('update:status', { type: 'downloaded' })
+    })
+    autoUpdater.on('error', (err) => {
+      mainWindow?.webContents.send('update:status', { type: 'error', message: err.message })
+    })
+
+    ipcMain.handle('update:check', () => autoUpdater.checkForUpdates())
+    ipcMain.handle('update:download', () => autoUpdater.downloadUpdate())
+    ipcMain.handle('update:install', () => { autoUpdater.quitAndInstall() })
+
+    // 起動後30秒後にチェック（起動直後は重いので少し遅らせる）
+    setTimeout(() => autoUpdater.checkForUpdates(), 30_000)
   }
 
   app.on('activate', () => {

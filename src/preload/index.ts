@@ -68,7 +68,7 @@ const api = {
   reportGenerate: (
     projectIds: string[],
     dateRange: unknown,
-    type: 'daily' | 'weekly',
+    type: 'daily' | 'weekly' | 'monthly',
     templateId: string
   ) => ipcRenderer.invoke('report:generate', projectIds, dateRange, type, templateId),
   reportSave: (text: string, filename: string) => ipcRenderer.invoke('report:save', text, filename),
@@ -81,6 +81,15 @@ const api = {
   onReportLog: (callback: (line: string) => void) => {
     ipcRenderer.on('report:log', (_, line) => callback(line))
     return () => ipcRenderer.removeAllListeners('report:log')
+  },
+
+  // Auto updater
+  updateCheck: () => ipcRenderer.invoke('update:check'),
+  updateDownload: () => ipcRenderer.invoke('update:download'),
+  updateInstall: () => ipcRenderer.invoke('update:install'),
+  onUpdateStatus: (callback: (status: { type: string; version?: string; percent?: number; message?: string }) => void) => {
+    ipcRenderer.on('update:status', (_, status) => callback(status))
+    return () => ipcRenderer.removeAllListeners('update:status')
   }
 }
 

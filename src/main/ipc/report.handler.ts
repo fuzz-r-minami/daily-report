@@ -380,7 +380,7 @@ export function registerReportHandlers(win: BrowserWindow): void {
       _,
       projectIds: string[],
       dateRange: DateRange,
-      type: 'daily' | 'weekly',
+      type: 'daily' | 'weekly' | 'monthly',
       templateId: string
     ): Promise<IpcResult<ReportSession>> => {
       try {
@@ -414,10 +414,12 @@ export function registerReportHandlers(win: BrowserWindow): void {
         }
 
         const template = settingsStore.getSettings().templates.find((t) => t.id === templateId)
+        const allocation = type === 'monthly' ? computeAllocation(collectedData) : null
         const rawText = buildRawText(
           collectedData, dateRange, type,
           template?.preamble ?? '',
-          template?.postamble ?? ''
+          template?.postamble ?? '',
+          allocation
         )
         const session: ReportSession = {
           id: uuidv4(),

@@ -2,6 +2,11 @@
 module.exports = {
   appId: 'com.drepo.app',
   productName: 'drepo',
+  publish: {
+    provider: 'github',
+    owner: 'fuzz-r-minami',
+    repo: 'daily-report'
+  },
   directories: {
     buildResources: 'build',
     output: 'release'

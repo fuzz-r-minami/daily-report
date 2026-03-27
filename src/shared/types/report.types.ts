@@ -97,7 +97,7 @@ export interface CollectedData {
 
 export interface ReportSession {
   id: string
-  type: 'daily' | 'weekly'
+  type: 'daily' | 'weekly' | 'monthly'
   dateRange: DateRange
   projectIds: string[]
   templateId: string

@@ -9,6 +9,8 @@ interface AppState {
   currentSession: ReportSession | null
   progressLog: CollectionProgress[]
   logs: string[]
+  isGenerating: boolean
+  isAllocating: boolean
 
   setSettings: (settings: AppSettings) => void
   setProjects: (projects: Project[]) => void
@@ -24,6 +26,8 @@ interface AppState {
   clearProgress: () => void
   addLog: (line: string) => void
   clearLogs: () => void
+  setIsGenerating: (v: boolean) => void
+  setIsAllocating: (v: boolean) => void
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -33,6 +37,8 @@ export const useAppStore = create<AppState>((set) => ({
   currentSession: null,
   progressLog: [],
   logs: [],
+  isGenerating: false,
+  isAllocating: false,
 
   setSettings: (settings) => set({ settings }),
   setProjects: (projects) => set({ projects }),
@@ -60,5 +66,7 @@ export const useAppStore = create<AppState>((set) => ({
     }),
   clearProgress: () => set({ progressLog: [] }),
   addLog: (line) => set((s) => ({ logs: [...s.logs, line] })),
-  clearLogs: () => set({ logs: [] })
+  clearLogs: () => set({ logs: [] }),
+  setIsGenerating: (v) => set({ isGenerating: v }),
+  setIsAllocating: (v) => set({ isAllocating: v })
 }))

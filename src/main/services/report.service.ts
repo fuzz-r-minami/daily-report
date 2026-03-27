@@ -1,4 +1,4 @@
-import type { DateRange, CollectedData } from '@shared/types/report.types'
+import type { DateRange, CollectedData, AllocationResult } from '@shared/types/report.types'
 
 /** 最初の非空行を返す */
 function firstLine(s: string): string {
@@ -55,17 +55,21 @@ function appendVcsSection(
 function resolvePlaceholders(text: string, dateRange: DateRange): string {
   const date = dateRange.start.substring(0, 10)
   const weekRange = `${dateRange.start.substring(0, 10)} 〜 ${dateRange.end.substring(0, 10)}`
+  const [y, m] = dateRange.start.substring(0, 7).split('-')
+  const month = `${y}年${m}月`
   return text
     .replace(/\{\{date\}\}/g, date)
     .replace(/\{\{week_range\}\}/g, weekRange)
+    .replace(/\{\{month\}\}/g, month)
 }
 
 export function buildRawText(
   collectedData: CollectedData[],
   dateRange: DateRange,
-  _type: 'daily' | 'weekly',
+  _type: 'daily' | 'weekly' | 'monthly',
   preamble: string = '',
-  postamble: string = ''
+  postamble: string = '',
+  allocation: AllocationResult[] | null = null
 ): string {
   const lines: string[] = []
 
@@ -74,7 +78,19 @@ export function buildRawText(
     lines.push('')
   }
 
-  for (const data of collectedData) {    
+  if (allocation && allocation.length > 0) {
+    const total = allocation.reduce((s, r) => s + r.days, 0)
+    lines.push('### 稼働日数')
+    for (const r of allocation) {
+      lines.push(`- ${r.projectName}: ${r.days.toFixed(1)} 人日`)
+    }
+    lines.push(`- 合計: ${total.toFixed(1)} 人日`)
+    lines.push('')
+  }
+
+  for (const data of collectedData) {
+    lines.push('---')
+    lines.push('')
     lines.push(`## ${data.projectName}`)
     lines.push('')
     lines.push(`### 作業内容`)
@@ -167,13 +183,12 @@ export function buildRawText(
         }
         lines.push('')
       }
-    }
-
-    lines.push('---')
+    }    
   }
 
-  if (postamble.trim()) {
+  if (postamble.trim()) {    
     lines.push('')
+    lines.push('---')
     lines.push(resolvePlaceholders(postamble, dateRange))
   }
 

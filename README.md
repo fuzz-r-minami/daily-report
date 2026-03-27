@@ -1,217 +1,168 @@
-# drepo - 日報・週報自動生成デスクトップアプリ
+# 日報ジェネレーター
 
-Git / SVN / Slack / ファイル変更情報を収集し、Claude AI で整形してメール送信する Electron 製 Windows デスクトップアプリ。
+Git / SVN / Perforce / Slack / Google Calendar から作業履歴を自動収集し、日報・週報・月報を生成する Windows デスクトップアプリです。
 
 ---
 
-## 技術スタック
+## 機能
 
-### フレームワーク・ランタイム
+- **日報 / 週報 / 月報の自動生成** — 指定した期間の作業履歴を収集してレポートを作成
+- **按分計算** — 月単位でプロジェクトごとの稼働人日を自動計算
+- **Claude AI 整形** — 収集した履歴データをもとに作業内容を自然な文章に整形
+- **メール送信** — 作成したレポートをそのままメーラーで送信
+- **自動アップデート** — 新しいバージョンがリリースされると通知
 
-| 技術 | バージョン | 役割 |
-|------|-----------|------|
-| Electron | 33.x | Windows EXE/MSI 配布、Node.js 統合 |
-| React | 18.x | UI コンポーネント |
-| TypeScript | 5.x | 型安全性 |
-| electron-vite | 3.x | ビルドツール（Vite ベース） |
+---
 
-### UI
+## はじめに
 
-| 技術 | 役割 |
+### インストール
+
+1. [Releases](https://github.com/fuzz-r-minami/daily-report/releases) から最新の `drepo Setup x.x.x.exe` をダウンロードしてインストール
+2. 起動後、まず **プロジェクト** を追加する
+
+### 最初にやること
+
+1. **プロジェクトを追加する**（左メニュー「プロジェクト」→「+ 新規追加」）
+2. プロジェクトに使っているツール（Git / SVN / Perforce / Slack など）を設定する
+3. ダッシュボードでプロジェクトと期間を選んでレポートを生成する
+
+---
+
+## プロジェクト設定
+
+プロジェクトごとに複数の連携ソースを設定できます。
+
+### Git
+
+| 項目 | 説明 |
 |------|------|
-| Tailwind CSS | スタイリング |
-| React Router DOM | 画面遷移 |
-| Zustand | UI 状態管理 |
+| ローカルパス | ローカルのリポジトリフォルダパス |
+| ブランチ | 対象ブランチ（例: `main`） |
+| 認証 | HTTPS の場合は Personal Access Token、SSH は既存の `~/.ssh/` キーを自動利用 |
 
-### メインプロセス（Node.js）
+### SVN
 
-| パッケージ | 役割 |
-|-----------|------|
-| simple-git | Git コミット取得 |
-| xml2js | SVN XML 出力パース |
-| @slack/web-api | Slack メッセージ取得 |
-| @anthropic-ai/sdk | Claude API 連携 |
-| electron-store | 設定永続化（JSON） |
-| keytar | Windows 資格情報マネージャー連携 |
-| glob | ファイル変更検出 |
+| 項目 | 説明 |
+|------|------|
+| ローカルパス | ローカルの作業コピーパス |
+| リポジトリ URL | SVN リポジトリの URL |
+| ユーザー名 | コミットの絞り込みに使用（認証情報は SVN クライアントの設定を利用） |
 
-### ビルド・配布
+> SVN 連携には TortoiseSVN のインストールが必要です。
 
-| パッケージ | 役割 |
-|-----------|------|
-| electron-builder | MSI / NSIS / ZIP インストーラ生成 |
+### Perforce
 
----
+| 項目 | 説明 |
+|------|------|
+| サーバー (P4PORT) | 接続先（例: `perforce:1666`） |
+| ユーザー名 | Perforce のユーザー名 |
+| デポパス | 対象のデポパス（例: `//depot/myproject/...`） |
+| パスワード / チケット | 認証情報 |
 
-## プロジェクト構成
+> Perforce 連携には p4 コマンドラインクライアントのインストールが必要です。
 
-```
-daily-report/
-├── src/
-│   ├── main/                         # Electron メインプロセス（Node.js）
-│   │   ├── index.ts                  # エントリポイント、BrowserWindow 生成
-│   │   ├── ipc/                      # IPC ハンドラ（レンダラー→メインプロセス通信）
-│   │   │   ├── settings.handler.ts   # 設定の CRUD
-│   │   │   ├── git.handler.ts        # Git 操作
-│   │   │   ├── svn.handler.ts        # SVN 操作
-│   │   │   ├── slack.handler.ts      # Slack 操作
-│   │   │   ├── file.handler.ts       # ファイル操作
-│   │   │   ├── claude.handler.ts     # Claude API
-│   │   │   ├── report.handler.ts     # レポート生成オーケストレーション
-│   │   │   └── mail.handler.ts       # mailto: でメーラー起動
-│   │   ├── services/                 # ビジネスロジック
-│   │   │   ├── git.service.ts        # Git コミット収集
-│   │   │   ├── svn.service.ts        # SVN コミット収集
-│   │   │   ├── slack.service.ts      # Slack メッセージ収集
-│   │   │   ├── file-watcher.service.ts # ファイル変更検出
-│   │   │   ├── claude.service.ts     # Claude フォーマット
-│   │   │   └── report.service.ts     # 生テキスト生成
-│   │   ├── store/
-│   │   │   ├── settings.store.ts     # electron-store ラッパー
-│   │   │   └── credentials.store.ts  # keytar ラッパー
-│   │   └── preload/
-│   │       └── index.ts              # contextBridge で API 公開
-│   │
-│   ├── renderer/                     # React フロントエンド
-│   │   ├── index.html
-│   │   ├── main.tsx
-│   │   ├── App.tsx                   # ルーティング
-│   │   ├── pages/
-│   │   │   ├── Dashboard.tsx         # メイン画面（プロジェクト選択・生成）
-│   │   │   ├── Projects.tsx          # プロジェクト一覧
-│   │   │   ├── ProjectEdit.tsx       # プロジェクト追加・編集
-│   │   │   ├── Templates.tsx         # テンプレート管理
-│   │   │   ├── Settings.tsx          # アプリ設定
-│   │   │   └── ReportPreview.tsx     # 生成結果プレビュー・送信
-│   │   ├── components/
-│   │   │   ├── layout/
-│   │   │   │   ├── Sidebar.tsx
-│   │   │   │   └── TopBar.tsx
-│   │   │   ├── project/
-│   │   │   │   ├── GitConfig.tsx
-│   │   │   │   ├── SvnConfig.tsx
-│   │   │   │   ├── SlackConfig.tsx
-│   │   │   │   └── FilePathConfig.tsx
-│   │   │   ├── report/
-│   │   │   │   ├── DateRangePicker.tsx
-│   │   │   │   ├── ProjectSelector.tsx
-│   │   │   │   ├── ReportEditor.tsx
-│   │   │   │   └── ProgressLog.tsx
-│   │   │   └── common/
-│   │   │       ├── StatusBadge.tsx
-│   │   │       └── ConnectionTest.tsx
-│   │   ├── store/
-│   │   │   └── app.store.ts          # Zustand ストア
-│   │   └── lib/
-│   │       ├── api.ts                # window.electronAPI ラッパー
-│   │       └── utils.ts
-│   │
-│   └── shared/                       # メイン・レンダラー共通型定義
-│       ├── types/
-│       │   ├── project.types.ts
-│       │   ├── report.types.ts
-│       │   ├── settings.types.ts
-│       │   └── ipc.types.ts
-│       └── constants.ts
-│
-├── build/
-│   └── icon.ico
-├── electron-builder.config.js
-├── electron.vite.config.ts
-├── tailwind.config.js
-├── tsconfig.json
-├── tsconfig.node.json
-└── tsconfig.web.json
-```
+### Slack
 
----
+Slack のメッセージを収集します。事前にアプリを作成しトークンを取得してください。
 
-## 機能概要
+**Slack アプリの作成手順：**
 
-### レポート生成フロー
-
-1. **Dashboard** でプロジェクト・期間・テンプレートを選択
-2. 各ソースからデータを並行収集
-   - Git: `simple-git` でコミット取得（日時・著者フィルタあり）
-   - SVN: `svn log --xml` CLI をラップして XML パース
-   - Slack: `conversations.history` + `search.messages` でメッセージ収集
-   - ファイル: `glob` + `mtime` で変更ファイル検出
-3. 収集データを生テキスト（Markdown 形式）に結合（`report.service.ts`）
-4. 任意で Claude API に渡してテンプレートに沿って整形
-5. **ReportPreview** で確認・編集
-6. `mailto:` でデフォルトメーラーを起動して送信
-
-### 設定・認証情報の保存
-
-- 設定: `electron-store` → `%APPDATA%\drepo\config.json`
-- 認証情報（API キー・トークン・パスワード）: `keytar` → Windows 資格情報マネージャー（設定ファイルには一切保存しない）
-
-### IPC 通信アーキテクチャ
-
-```
-Renderer（React）
-    ↓ window.electronAPI.xxx()   ← contextBridge で公開
-Preload（contextBridge）
-    ↓ ipcRenderer.invoke(channel, args)
-Main（IPC Handler）
-    ↓
-Service Layer（Node.js）
-```
-
-IPC 戻り値の統一フォーマット:
-```typescript
-type IpcResult<T> = { success: true; data: T } | { success: false; error: string }
-```
-
----
-
-## セットアップ
-
-### 前提条件
-
-- Node.js 20 LTS 以上
-- SVN 連携を使う場合: TortoiseSVN または SilkSVN（`svn` コマンドが PATH に必要）
-
-### 開発
-
-```bash
-npm install
-npm run dev
-```
-
-### ビルド（Windows インストーラ生成）
-
-```bash
-npm run dist:win
-# → release/ に NSIS インストーラ・MSI・ZIP を出力
-```
-
----
-
-## 外部サービスの認証設定
-
-| 連携先 | 認証方式 | 保存場所 |
-|--------|---------|---------|
-| Git (HTTPS) | Personal Access Token | keytar |
-| Git (SSH) | `~/.ssh/` の既存キーを自動利用 | ファイルシステム |
-| SVN | ユーザー名 + パスワード | keytar |
-| Slack | User Token（xoxp-） | keytar |
-| Claude | API Key | keytar |
-
-### Slack アプリのセットアップ
-
-1. [api.slack.com/apps](https://api.slack.com/apps) でアプリを新規作成
-2. **OAuth & Permissions → User Token Scopes** に以下を追加:
+1. [api.slack.com/apps](https://api.slack.com/apps) で新規アプリを作成
+2. **OAuth & Permissions → User Token Scopes** に以下のスコープを追加：
    - `channels:history`, `channels:read`
    - `groups:history`, `groups:read`
    - `im:history`, `mpim:history`
    - `users:read`
-3. ワークスペースにインストールし、発行された **User OAuth Token（xoxp-...）** をアプリの設定画面に入力
+3. ワークスペースにインストールし、発行された **User OAuth Token（xoxp-...）** を設定画面に入力
+
+### Google Calendar
+
+設定画面（⚙️）で Client ID / Client Secret を登録し、認証を行ってください。
+
+プロジェクト名がイベントのタイトルに含まれるイベントが収集されます。辞退・未回答の予定は除外されます。
+
+### ファイル監視
+
+指定したフォルダ内で変更があったファイルを収集します。フォルダパスと対象期間内に更新されたファイルが履歴として記録されます。
 
 ---
 
-## セキュリティ
+## レポートの生成
 
-- `contextIsolation: true` / `nodeIntegration: false` を維持
-- API キー・トークン類は keytar 経由で Windows 資格情報マネージャーに保存
-- IPC チャンネル名・引数・戻り値の型は `src/shared/types/ipc.types.ts` で一元管理
+### 種別と期間
+
+| 種別 | 説明 |
+|------|------|
+| 📅 日報 | 指定した1日分の履歴を収集 |
+| 📆 週報 | 指定した日から過去7日間の履歴を収集 |
+| 🗓 月報 | 指定した月の全履歴を収集し、按分計算も同時に実行 |
+| 📊 按分計算 | 月単位でプロジェクトごとの稼働人日を計算（レポートは生成しない） |
+
+### 按分計算について
+
+Git / SVN / Perforce / Slack / Google Calendar に活動があった日を稼働日とし、複数プロジェクトで同じ日に活動があった場合は 1/N 日として按分します。
+
+---
+
+## レポートのプレビューと送信
+
+収集が完了するとプレビュー画面に移動します。
+
+| 操作 | 説明 |
+|------|------|
+| 件名の編集 | メール件名をプレビュー画面で直接編集できます |
+| 🤖 Claude で整形 | 収集データをもとに作業内容を AI が文章化します（要 Claude 設定） |
+| ✏️ 編集 / 👁 プレビュー | Markdown テキストを直接編集できます |
+| 📋 コピー | レポートをクリップボードにコピー |
+| 💾 保存 | Markdown ファイルとして保存 |
+| 📧 MailTo: | デフォルトのメーラーでメール作成画面を開きます（ボタンにカーソルを合わせると送信先を確認できます） |
+
+---
+
+## テンプレート設定
+
+レポートの形式はテンプレートで管理します（左メニュー「テンプレート」）。
+
+| 項目 | 説明 |
+|------|------|
+| 前文 | レポート冒頭に挿入される文章 |
+| 末文 | レポート末尾に挿入される文章 |
+| 件名テンプレート | メール件名のひな形 |
+| 送信先 | メール送信先アドレス（複数可） |
+| Claude システムプロンプト | AI 整形時の指示内容 |
+
+**前文・末文で使える変数：**
+
+| 変数 | 内容 | 対応種別 |
+|------|------|---------|
+| `{{date}}` | 日付（例: `2026-03-28`） | 日報 |
+| `{{week_range}}` | 期間（例: `2026-03-22 〜 2026-03-28`） | 週報 |
+| `{{month}}` | 年月（例: `2026年3月`） | 月報 |
+
+---
+
+## 設定（⚙️）
+
+### Claude AI 整形
+
+インストール済みの Claude CLI を使って収集データを整形します。
+設定画面で「Claude 整形を有効にする」をオンにしてください。
+
+### Google Calendar 連携
+
+Google Cloud Console で OAuth 2.0 クライアント ID を作成し、Client ID と Client Secret を設定画面に登録した後、「Google アカウントで認証」をクリックして連携を完了してください。
+
+### データ保存先
+
+収集データや保存したレポートの保存先フォルダを確認・開くことができます。
+
+### アップデート
+
+起動後に自動でアップデートを確認します。「更新を確認」ボタンで手動確認も可能です。新しいバージョンが見つかった場合はダウンロードし、「再起動して適用」で更新されます。
+
+---
+
+## 認証情報の管理
+
+パスワード・API キー・トークン類はすべて Windows の資格情報マネージャーに保存されます。設定ファイルには保存されません。

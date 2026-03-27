@@ -1,10 +1,13 @@
 import {
   DEFAULT_SYSTEM_PROMPT_DAILY,
   DEFAULT_SYSTEM_PROMPT_WEEKLY,
+  DEFAULT_SYSTEM_PROMPT_MONTHLY,
   DEFAULT_EMAIL_SUBJECT_DAILY,
   DEFAULT_EMAIL_SUBJECT_WEEKLY,
+  DEFAULT_EMAIL_SUBJECT_MONTHLY,
   DEFAULT_PREAMBLE,
   DEFAULT_PREAMBLE_WEEKLY,
+  DEFAULT_PREAMBLE_MONTHLY,
   DEFAULT_POSTAMBLE
 } from '../constants'
 
@@ -20,7 +23,7 @@ export interface AppSettings {
 export interface GeneralSettings {
   dataDir: string
   logRetentionDays: number
-  defaultReportType: 'daily' | 'weekly'
+  defaultReportType: 'daily' | 'weekly' | 'monthly'
 }
 
 export interface Project {
@@ -82,7 +85,7 @@ export interface FilePathConfig {
 export interface Template {
   id: string
   name: string
-  type: 'daily' | 'weekly'
+  type: 'daily' | 'weekly' | 'monthly'
   isDefault: boolean
   preamble: string
   postamble: string
@@ -141,6 +144,19 @@ export const DEFAULT_SETTINGS: AppSettings = {
       postamble: DEFAULT_POSTAMBLE,
       systemPrompt: DEFAULT_SYSTEM_PROMPT_WEEKLY,
       emailSubjectTemplate: DEFAULT_EMAIL_SUBJECT_WEEKLY,
+      emailTo: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    },
+    {
+      id: 'default-monthly',
+      name: 'デフォルト月報',
+      type: 'monthly',
+      isDefault: true,
+      preamble: DEFAULT_PREAMBLE_MONTHLY,
+      postamble: DEFAULT_POSTAMBLE,
+      systemPrompt: DEFAULT_SYSTEM_PROMPT_MONTHLY,
+      emailSubjectTemplate: DEFAULT_EMAIL_SUBJECT_MONTHLY,
       emailTo: [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()

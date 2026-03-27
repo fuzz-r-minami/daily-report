@@ -15,6 +15,10 @@ export function Settings(): JSX.Element {
   // SVN
   const [svnVersion, setSvnVersion] = useState<string | null>(null)
 
+  // Auto update
+  type UpdateStatus = { type: 'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error'; version?: string; percent?: number; message?: string }
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({ type: 'idle' })
+
   // Data dir
   const [dataDir, setDataDir] = useState('')
 
@@ -42,6 +46,10 @@ export function Settings(): JSX.Element {
       if (r.success) setDataDir(r.data)
     })
   }, [settings])
+
+  useEffect(() => {
+    api.onUpdateStatus((status) => setUpdateStatus(status as typeof updateStatus))
+  }, [])
 
   const handleSaveClaude = async (): Promise<void> => {
     if (!settings) return
@@ -216,6 +224,46 @@ export function Settings(): JSX.Element {
         <button onClick={handleOpenDataDir} className="btn-secondary text-xs py-1.5">
           フォルダを開く
         </button>
+      </section>
+
+      {/* Auto update */}
+      <section className="card space-y-3">
+        <h3 className="section-title">🔄 アップデート</h3>
+        <div className="text-xs text-muted-foreground">
+          {updateStatus.type === 'idle' && 'アップデートを確認できます'}
+          {updateStatus.type === 'checking' && '確認中...'}
+          {updateStatus.type === 'not-available' && '✓ 最新バージョンです'}
+          {updateStatus.type === 'available' && `新しいバージョン ${updateStatus.version} があります`}
+          {updateStatus.type === 'downloading' && `ダウンロード中... ${updateStatus.percent}%`}
+          {updateStatus.type === 'downloaded' && '✓ ダウンロード完了。再起動して適用できます'}
+          {updateStatus.type === 'error' && `エラー: ${updateStatus.message}`}
+        </div>
+        <div className="flex gap-2">
+          {(updateStatus.type === 'idle' || updateStatus.type === 'not-available' || updateStatus.type === 'error') && (
+            <button
+              onClick={() => { setUpdateStatus({ type: 'checking' }); api.updateCheck() }}
+              className="btn-secondary text-xs py-1.5"
+            >
+              更新を確認
+            </button>
+          )}
+          {updateStatus.type === 'available' && (
+            <button
+              onClick={() => { setUpdateStatus({ type: 'downloading', percent: 0 }); api.updateDownload() }}
+              className="btn-primary text-xs py-1.5"
+            >
+              ダウンロード
+            </button>
+          )}
+          {updateStatus.type === 'downloaded' && (
+            <button
+              onClick={() => api.updateInstall()}
+              className="btn-primary text-xs py-1.5"
+            >
+              再起動して適用
+            </button>
+          )}
+        </div>
       </section>
     </div>
   )

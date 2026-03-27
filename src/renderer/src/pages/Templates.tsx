@@ -5,10 +5,13 @@ import type { Template } from '@shared/types/settings.types'
 import {
   DEFAULT_SYSTEM_PROMPT_DAILY,
   DEFAULT_SYSTEM_PROMPT_WEEKLY,
+  DEFAULT_SYSTEM_PROMPT_MONTHLY,
   DEFAULT_EMAIL_SUBJECT_DAILY,
   DEFAULT_EMAIL_SUBJECT_WEEKLY,
+  DEFAULT_EMAIL_SUBJECT_MONTHLY,
   DEFAULT_PREAMBLE,
   DEFAULT_PREAMBLE_WEEKLY,
+  DEFAULT_PREAMBLE_MONTHLY,
   DEFAULT_POSTAMBLE
 } from '@shared/constants'
 
@@ -25,19 +28,13 @@ export function Templates(): JSX.Element {
     setForm({ ...t })
   }
 
-  const startNew = (type: 'daily' | 'weekly'): void => {
+  const startNew = (type: 'daily' | 'weekly' | 'monthly'): void => {
     setShowTypePicker(false)
     setEditingId('new')
-    setForm({
-      name: '',
-      type,
-      isDefault: false,
-      preamble: type === 'daily' ? DEFAULT_PREAMBLE : DEFAULT_PREAMBLE_WEEKLY,
-      postamble: DEFAULT_POSTAMBLE,
-      systemPrompt: type === 'daily' ? DEFAULT_SYSTEM_PROMPT_DAILY : DEFAULT_SYSTEM_PROMPT_WEEKLY,
-      emailSubjectTemplate: type === 'daily' ? DEFAULT_EMAIL_SUBJECT_DAILY : DEFAULT_EMAIL_SUBJECT_WEEKLY,
-      emailTo: []
-    })
+    const preamble = type === 'daily' ? DEFAULT_PREAMBLE : type === 'weekly' ? DEFAULT_PREAMBLE_WEEKLY : DEFAULT_PREAMBLE_MONTHLY
+    const systemPrompt = type === 'daily' ? DEFAULT_SYSTEM_PROMPT_DAILY : type === 'weekly' ? DEFAULT_SYSTEM_PROMPT_WEEKLY : DEFAULT_SYSTEM_PROMPT_MONTHLY
+    const emailSubjectTemplate = type === 'daily' ? DEFAULT_EMAIL_SUBJECT_DAILY : type === 'weekly' ? DEFAULT_EMAIL_SUBJECT_WEEKLY : DEFAULT_EMAIL_SUBJECT_MONTHLY
+    setForm({ name: '', type, isDefault: false, preamble, postamble: DEFAULT_POSTAMBLE, systemPrompt, emailSubjectTemplate, emailTo: [] })
   }
 
   const handleSave = async (): Promise<void> => {
@@ -80,6 +77,7 @@ export function Templates(): JSX.Element {
               className="w-full border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
               <option value="daily">日報</option>
               <option value="weekly">週報</option>
+              <option value="monthly">月報</option>
             </select>
           </div>
           <div className="space-y-1 flex-1">
@@ -98,7 +96,7 @@ export function Templates(): JSX.Element {
 
         <div className="space-y-1">
           <label className="text-sm font-medium">前文</label>
-          <p className="text-xs text-muted-foreground">使用可能な変数: {form.type === 'weekly' ? '{{week_range}}' : '{{date}}'}</p>
+          <p className="text-xs text-muted-foreground">使用可能な変数: {form.type === 'weekly' ? '{{week_range}}' : form.type === 'monthly' ? '{{month}}' : '{{date}}'}</p>
           <textarea value={form.preamble || ''} onChange={(e) => setForm({ ...form, preamble: e.target.value })}
             rows={2} className="w-full border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-y" />
         </div>
@@ -144,6 +142,10 @@ export function Templates(): JSX.Element {
               className="px-3 py-1.5 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90">
               週報
             </button>
+            <button onClick={() => startNew('monthly')}
+              className="px-3 py-1.5 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90">
+              月報
+            </button>
             <button onClick={() => setShowTypePicker(false)}
               className="px-3 py-1.5 border border-border rounded-md text-sm hover:bg-accent">
               キャンセル
@@ -163,7 +165,7 @@ export function Templates(): JSX.Element {
               <div className="flex items-center gap-2">
                 <p className="font-medium text-sm">{t.name}</p>
                 <span className="text-xs text-muted-foreground">
-                  {t.type === 'daily' ? '日報' : '週報'}
+                  {t.type === 'daily' ? '日報' : t.type === 'weekly' ? '週報' : '月報'}
                 </span>
               </div>
             </div>

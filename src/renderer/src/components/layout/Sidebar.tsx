@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import { cn } from '../../lib/utils'
+import { useAppStore } from '../../store/app.store'
 
 const navItems = [
   { to: '/dashboard', label: 'ダッシュボード', icon: '📊' },
@@ -9,6 +10,9 @@ const navItems = [
 ]
 
 export function Sidebar(): JSX.Element {
+  const { isGenerating, isAllocating } = useAppStore()
+  const isBusy = isGenerating || isAllocating
+
   return (
     <aside className="w-52 shrink-0 border-r border-border bg-secondary/30 flex flex-col">
       <nav className="flex-1 p-2 space-y-1">
@@ -27,6 +31,9 @@ export function Sidebar(): JSX.Element {
           >
             <span>{item.icon}</span>
             <span>{item.label}</span>
+            {item.to === '/dashboard' && isBusy && (
+              <span className="ml-auto w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
+            )}
           </NavLink>
         ))}
       </nav>

@@ -26,9 +26,12 @@ function buildSubject(
   const weekRange = session
     ? `${session.dateRange.start.substring(0, 10)} - ${session.dateRange.end.substring(0, 10)}`
     : ''
+  const [y, m] = (session?.dateRange.start.substring(0, 7) || '-').split('-')
+  const month = y && m ? `${y}年${m}月` : ''
   return (template?.emailSubjectTemplate || DEFAULT_EMAIL_SUBJECT_DAILY)
     .replace('{{date}}', dateStr)
     .replace('{{week_range}}', weekRange)
+    .replace('{{month}}', month)
 }
 
 export function ReportPreview(): JSX.Element {
@@ -63,7 +66,7 @@ export function ReportPreview(): JSX.Element {
     setIsFormatting(true)
     setStatus(null)
     try {
-      const r = await api.claudeFormat(currentSession.rawText, currentSession.templateId)
+      const r = await api.claudeFormat(text, currentSession.templateId)
       if (r.success) {
         setText(r.data)
         setCurrentSession({ ...currentSession, formattedText: r.data, status: 'ready' })
@@ -132,10 +135,12 @@ export function ReportPreview(): JSX.Element {
     return { name: d.projectName, items }
   })
 
-  const typeLabel = currentSession.type === 'daily' ? '日報' : '週報'
+  const typeLabel = currentSession.type === 'daily' ? '日報' : currentSession.type === 'weekly' ? '週報' : '月報'
   const dateLabel = currentSession.type === 'daily'
     ? currentSession.dateRange.start.substring(0, 10)
-    : `${currentSession.dateRange.start.substring(0, 10)} 〜 ${currentSession.dateRange.end.substring(0, 10)}`
+    : currentSession.type === 'monthly'
+      ? currentSession.dateRange.start.substring(0, 7).replace('-', '年') + '月'
+      : `${currentSession.dateRange.start.substring(0, 10)} 〜 ${currentSession.dateRange.end.substring(0, 10)}`
 
   return (
     <div className="flex flex-col h-full">
@@ -177,6 +182,7 @@ export function ReportPreview(): JSX.Element {
           <button
             onClick={handleMail}
             className="text-xs py-1.5 px-3 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+            title={(template?.emailTo || []).filter(Boolean).join('\n') || '送信先未設定'}
           >
             📧 MailTo:
           </button>
