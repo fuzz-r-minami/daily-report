@@ -58,8 +58,8 @@ export function ProjectEdit(): JSX.Element {
   const [error, setError] = useState<string | null>(null)
   // Credentials keyed by repo id
   const [gitTokens, setGitTokens] = useState<Record<string, string>>({})
-  const [slackToken, setSlackToken] = useState('')
-  // Calendars fetched from Google
+  const [slackAuthed, setSlackAuthed] = useState(false)
+  const [slackAuthing, setSlackAuthing] = useState(false)
   // Test results keyed by repo id or 'slack'
   const [testResults, setTestResults] = useState<Record<string, { msg: string; ok: boolean }>>({})
 
@@ -75,7 +75,7 @@ export function ProjectEdit(): JSX.Element {
     }
     if (existing?.slack?.credentialKey) {
       api.credentialGet(existing.slack.credentialKey).then((r) => {
-        if (r.success && r.data) setSlackToken(r.data)
+        if (r.success && r.data) setSlackAuthed(true)
       })
     }
     if (existing?.perforceRepos) {
@@ -98,10 +98,9 @@ export function ProjectEdit(): JSX.Element {
         repo.credentialKey = key
       }
     }
-    if (slack.enabled && slackToken) {
-      const key = `slack-token-${proj.id}`
-      await api.credentialSet(key, slackToken)
-      proj.slack = { ...proj.slack!, credentialKey: key }
+    // slack トークンは OAuth 完了時に既に保存済みなので credentialKey のみ確認
+    if (slack.enabled && !proj.slack?.credentialKey) {
+      proj.slack = { ...proj.slack!, credentialKey: `slack-token-${proj.id}` }
     }
     for (const repo of proj.perforceRepos || []) {
       const pwd = perforcePasswords[repo.id]
@@ -162,9 +161,29 @@ export function ProjectEdit(): JSX.Element {
     setTestResults((prev) => ({ ...prev, [repo.id]: { msg: r.success ? r.data : r.error, ok: r.success } }))
   }
 
+  const handleSlackAuth = async (): Promise<void> => {
+    if (!id && !isNew) return
+    setSlackAuthing(true)
+    setTestResults((prev) => ({ ...prev, slack: undefined as never }))
+    try {
+      // 新規プロジェクトの場合は一時的な ID を使用
+      const projectId = id || `new-${Date.now()}`
+      const r = await api.slackStartAuth(projectId)
+      if (r.success) {
+        setSlackAuthed(true)
+        setSlack((prev) => ({ ...prev, credentialKey: r.data }))
+        setTestResults((prev) => ({ ...prev, slack: { msg: '認証完了', ok: true } }))
+      } else {
+        setTestResults((prev) => ({ ...prev, slack: { msg: r.error, ok: false } }))
+      }
+    } finally {
+      setSlackAuthing(false)
+    }
+  }
+
   const handleTestSlack = async (): Promise<void> => {
-    if (slackToken) await api.credentialSet('slack-test-token', slackToken)
-    const r = await api.slackTest('slack-test-token')
+    const credKey = slack.credentialKey || `slack-token-${id}`
+    const r = await api.slackTest(credKey)
     setTestResults((prev) => ({ ...prev, slack: { msg: r.success ? r.data : r.error, ok: r.success } }))
   }
 
@@ -428,18 +447,18 @@ export function ProjectEdit(): JSX.Element {
               </label>
               {slack.enabled && (
                 <>
-                  <div className="text-xs text-muted-foreground space-y-0.5 p-2 bg-secondary/40 rounded">
-                    <p className="font-medium text-foreground">必要な OAuth スコープ</p>
-                    <p><code>channels:read</code> — パブリックチャンネル一覧</p>
-                    <p><code>channels:history</code> — パブリックチャンネルのメッセージ</p>
-                    <p><code>search:read</code> — スレッド返信の期間検索</p>
-                    <p><code>groups:read</code> — プライベートチャンネル一覧</p>
-                    <p><code>groups:history</code> — プライベートチャンネルのメッセージ</p>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={handleSlackAuth}
+                      disabled={slackAuthing}
+                      className="px-3 py-1.5 text-xs bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50"
+                    >
+                      {slackAuthing ? '認証中...' : slackAuthed ? 'Slackと再連携' : 'Slackと連携'}
+                    </button>
+                    {slackAuthed && !slackAuthing && (
+                      <span className="text-xs text-green-600">✓ 連携済み</span>
+                    )}
                   </div>
-                  <Field label="User Token（xoxp-...）">
-                    <input type="password" value={slackToken} onChange={(e) => setSlackToken(e.target.value)}
-                      placeholder="xoxp-..." className="input-field" />
-                  </Field>
                   <Field label="チャンネルID（カンマ区切り）">
                     <input type="text" value={slack.channelIds.join(',')}
                       onChange={(e) => setSlack({ ...slack, channelIds: e.target.value.split(',').map(s => s.trim()) })}
@@ -448,12 +467,13 @@ export function ProjectEdit(): JSX.Element {
                   </Field>
                   <div className="pt-2 border-t border-border flex items-center gap-3">
                     <button onClick={handleTestSlack}
-                      className="px-3 py-1.5 text-xs border border-border rounded-md hover:bg-accent">
+                      disabled={!slackAuthed}
+                      className="px-3 py-1.5 text-xs border border-border rounded-md hover:bg-accent disabled:opacity-40">
                       接続テスト
                     </button>
                     {testResults['slack'] && (
                       <span className={`text-xs ${testResults['slack'].ok ? 'text-green-600' : 'text-destructive'}`}>
-                        {testResults['slack'].msg}
+                        {testResults['slack'].ok ? '✓' : '✗'} {testResults['slack'].msg}
                       </span>
                     )}
                   </div>

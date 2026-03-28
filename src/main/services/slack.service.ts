@@ -1,8 +1,140 @@
+import crypto from 'crypto'
+import https from 'https'
+import { shell } from 'electron'
 import { WebClient } from '@slack/web-api'
 import type { SlackProjectConfig } from '@shared/types/settings.types'
 import type { DateRange, CollectedData } from '@shared/types/report.types'
-import { SLACK_MAX_MESSAGES } from '@shared/constants'
+import { SLACK_MAX_MESSAGES, SLACK_CLIENT_ID } from '@shared/constants'
 import { parseDateAsLocalMidnight } from '@shared/utils/date-utils'
+import { protocolEmitter } from '../protocol'
+
+const SLACK_AUTH_URL = 'https://slack.com/oauth/v2/authorize'
+const SLACK_TOKEN_URL = 'https://slack.com/api/oauth.v2.access'
+const SLACK_REDIRECT_URI = 'https://drepo.r-minami.workers.dev/'
+const SLACK_OAUTH_TIMEOUT_MS = 120_000
+
+// ── PKCE ヘルパー ──────────────────────────────────────────────────
+
+function generateCodeVerifier(): string {
+  return crypto.randomBytes(32).toString('base64url')
+}
+
+function computeCodeChallenge(verifier: string): string {
+  return crypto.createHash('sha256').update(verifier).digest('base64url')
+}
+
+// ── HTTPS POST ────────────────────────────────────────────────────
+
+function httpsPost(url: string, body: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const parsed = new URL(url)
+    const req = https.request(
+      {
+        hostname: parsed.hostname,
+        path: parsed.pathname + parsed.search,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Content-Length': Buffer.byteLength(body)
+        }
+      },
+      (res) => {
+        let data = ''
+        res.on('data', (chunk) => (data += chunk))
+        res.on('end', () => {
+          if ((res.statusCode ?? 0) >= 400) reject(new Error(`HTTP ${res.statusCode}: ${data}`))
+          else resolve(data)
+        })
+      }
+    )
+    req.on('error', reject)
+    req.end(body)
+  })
+}
+
+// ── Slack PKCE OAuth フロー ────────────────────────────────────────
+
+const USER_SCOPES = [
+  'channels:read',
+  'channels:history',
+  'search:read',
+  'groups:read',
+  'groups:history'
+].join(',')
+
+/**
+ * PKCE 方式で Slack OAuth を行い、User Access Token を返す。
+ * ブラウザを開いて認証後、drepo://callback?code=...&state=... を受け取る。
+ */
+export function startSlackOAuth(projectId: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const codeVerifier = generateCodeVerifier()
+    const codeChallenge = computeCodeChallenge(codeVerifier)
+    const state = `${projectId}-${crypto.randomBytes(8).toString('hex')}`
+
+    const authUrl =
+      `${SLACK_AUTH_URL}?` +
+      `client_id=${encodeURIComponent(SLACK_CLIENT_ID)}` +
+      `&user_scope=${encodeURIComponent(USER_SCOPES)}` +
+      `&redirect_uri=${encodeURIComponent(SLACK_REDIRECT_URI)}` +
+      `&state=${encodeURIComponent(state)}` +
+      `&code_challenge=${encodeURIComponent(codeChallenge)}` +
+      `&code_challenge_method=S256`
+
+    const timer = setTimeout(() => {
+      protocolEmitter.removeAllListeners('url')
+      reject(new Error('Slack 認証がタイムアウトしました（2分）'))
+    }, SLACK_OAUTH_TIMEOUT_MS)
+
+    const onUrl = async (url: string): Promise<void> => {
+      clearTimeout(timer)
+      try {
+        const urlObj = new URL(url)
+        const code = urlObj.searchParams.get('code')
+        const returnedState = urlObj.searchParams.get('state')
+        const error = urlObj.searchParams.get('error')
+
+        if (error) {
+          reject(new Error(`Slack 認証エラー: ${error}`))
+          return
+        }
+        if (returnedState !== state) {
+          reject(new Error('state パラメータが一致しません'))
+          return
+        }
+        if (!code) {
+          reject(new Error('認証コードが取得できませんでした'))
+          return
+        }
+
+        const body = new URLSearchParams({
+          client_id: SLACK_CLIENT_ID,
+          code,
+          code_verifier: codeVerifier,
+          redirect_uri: SLACK_REDIRECT_URI
+        }).toString()
+
+        const raw = await httpsPost(SLACK_TOKEN_URL, body)
+        const json = JSON.parse(raw)
+        if (!json.ok) {
+          reject(new Error(`トークン取得失敗: ${json.error}`))
+          return
+        }
+        const token: string = json.authed_user?.access_token
+        if (!token) {
+          reject(new Error('User Access Token が含まれていませんでした'))
+          return
+        }
+        resolve(token)
+      } catch (e) {
+        reject(e)
+      }
+    }
+
+    protocolEmitter.once('url', onUrl)
+    shell.openExternal(authUrl)
+  })
+}
 
 export async function testSlackConnection(token: string): Promise<string> {
   const client = new WebClient(token)

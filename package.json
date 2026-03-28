@@ -1,6 +1,6 @@
 {
   "name": "drepo",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "日報・週報自動生成デスクトップアプリ",
   "main": "./out/main/index.js",
   "author": "drepo",

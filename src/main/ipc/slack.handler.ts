@@ -3,9 +3,20 @@ import type { IpcResult } from '@shared/types/ipc.types'
 import type { DateRange, CollectedData } from '@shared/types/report.types'
 import * as settingsStore from '../store/settings.store'
 import * as credentialsStore from '../store/credentials.store'
-import { testSlackConnection, fetchSlackChannels, fetchSlackMessages } from '../services/slack.service'
+import { testSlackConnection, fetchSlackChannels, fetchSlackMessages, startSlackOAuth } from '../services/slack.service'
 
 export function registerSlackHandlers(): void {
+  ipcMain.handle('slack:startAuth', async (_, projectId: string): Promise<IpcResult<string>> => {
+    try {
+      const token = await startSlackOAuth(projectId)
+      const credKey = `slack-token-${projectId}`
+      await credentialsStore.setCredential(credKey, token)
+      return { success: true, data: credKey }
+    } catch (e) {
+      return { success: false, error: String(e) }
+    }
+  })
+
   ipcMain.handle('slack:test', async (_, credentialKey: string): Promise<IpcResult<string>> => {
     try {
       const token = await credentialsStore.getCredential(credentialKey)

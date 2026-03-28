@@ -64,17 +64,14 @@ Git / SVN / Perforce / Slack / Google Calendar から作業履歴を自動収集
 
 ### Slack
 
-Slack のメッセージを収集します。事前にアプリを作成しトークンを取得してください。
+PKCE 方式の OAuth でワンクリック連携できます。
 
-**Slack アプリの作成手順：**
+1. プロジェクト設定の **Slack タブ** で「Slack 連携を有効にする」をオンにする
+2. **「Slackと連携」ボタン** をクリックするとブラウザが開く
+3. Slack でアプリを承認すると自動的にアプリへ戻りトークンが保存される
+4. チャンネル ID（カンマ区切り）を入力して保存する
 
-1. [api.slack.com/apps](https://api.slack.com/apps) で新規アプリを作成
-2. **OAuth & Permissions → User Token Scopes** に以下のスコープを追加：
-   - `channels:history`, `channels:read`
-   - `groups:history`, `groups:read`
-   - `im:history`, `mpim:history`
-   - `users:read`
-3. ワークスペースにインストールし、発行された **User OAuth Token（xoxp-...）** を設定画面に入力
+収集されるのは自分が投稿したメッセージとスレッド返信です。
 
 ### Google Calendar
 
@@ -166,3 +163,27 @@ Google Cloud Console で OAuth 2.0 クライアント ID を作成し、Client I
 ## 認証情報の管理
 
 パスワード・API キー・トークン類はすべて Windows の資格情報マネージャーに保存されます。設定ファイルには保存されません。
+
+---
+
+## 設定をすべてリセットする
+
+設定は 2 か所に分かれて保存されています。完全にリセットするには両方を削除してください。
+
+### 1. 設定ファイルを削除する
+
+エクスプローラーのアドレスバーに以下を入力して開き、`config.json` を削除します。
+
+```
+%APPDATA%\drepo
+```
+
+プロジェクト・テンプレート・Claude / Google Calendar の設定などがすべて初期化されます。
+
+### 2. 認証情報を削除する
+
+スタートメニューで **「資格情報マネージャー」** を開き、**「Windows 資格情報」** タブの中から `daily-report` で始まるエントリをすべて削除します。
+
+Git トークン・Slack トークン・Perforce パスワード・Google Calendar リフレッシュトークンなどが削除されます。
+
+> 両方を削除するとアプリは初回起動時の状態に戻ります。
