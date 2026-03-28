@@ -24,12 +24,14 @@ module.exports = {
     oneClick: false,
     allowToChangeInstallationDirectory: true,
     installerIcon: 'build/icon.ico',
-    uninstallerIcon: 'build/icon.ico'
+    uninstallerIcon: 'build/icon.ico',
+    artifactName: '${productName}-${version}-setup.${ext}'
   },
   msi: {
     oneClick: false,
     perMachine: false,
     runAfterFinish: true,
-    additionalLightArgs: ['-cultures:ja-JP']
+    additionalLightArgs: ['-cultures:ja-JP'],
+    artifactName: '${productName}-${version}-setup.${ext}'
   }
 }
