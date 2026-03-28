@@ -60,7 +60,7 @@ export function ReportPreview(): JSX.Element {
 
   const handleFormat = async (): Promise<void> => {
     if (!settings?.claude.enabled) {
-      setStatus({ ok: false, msg: 'Claude連携が無効です。設定ページでAPIキーを入力して有効化してください。' })
+      setStatus({ ok: false, msg: 'Claude連携が無効です。設定ページで有効化してください。' })
       return
     }
     setIsFormatting(true)

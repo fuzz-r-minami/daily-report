@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { cn } from '../../lib/utils'
 import { useAppStore } from '../../store/app.store'
+import { APP_VERSION } from '@shared/constants'
 
 const navItems = [
   { to: '/dashboard', label: 'ダッシュボード', icon: '📊' },
@@ -38,7 +39,7 @@ export function Sidebar(): JSX.Element {
         ))}
       </nav>
       <div className="p-3 border-t border-border">
-        <p className="text-xs text-muted-foreground">v1.0.0</p>
+        <p className="text-xs text-muted-foreground">v{APP_VERSION}</p>
       </div>
     </aside>
   )

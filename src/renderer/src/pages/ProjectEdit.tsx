@@ -484,6 +484,9 @@ export function ProjectEdit(): JSX.Element {
 
           {activeTab === 'calendar' && (
             <>
+              <p className="text-xs text-muted-foreground">
+                ご利用前に<span className="font-medium text-foreground">設定画面（⚙️）</span>で Google Calendar の Client ID / Client Secret を登録し、認証を完了してください。
+              </p>
               <label className="flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"

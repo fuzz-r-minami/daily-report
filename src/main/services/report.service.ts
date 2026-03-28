@@ -63,6 +63,23 @@ function resolvePlaceholders(text: string, dateRange: DateRange): string {
     .replace(/\{\{month\}\}/g, month)
 }
 
+/** いずれかのサービスから1件以上の情報が取得できたか判定する */
+function hasAnyData(data: CollectedData): boolean {
+  if (data.git && !data.git.error &&
+    (data.git.commits.length > 0 ||
+     (data.git.uncommittedFiles?.length ?? 0) > 0 ||
+     (data.git.untrackedFiles?.length ?? 0) > 0)) return true
+  if (data.svn && !data.svn.error &&
+    (data.svn.commits.length > 0 ||
+     (data.svn.uncommittedFiles?.length ?? 0) > 0 ||
+     (data.svn.untrackedFiles?.length ?? 0) > 0)) return true
+  if (data.perforce && !data.perforce.error && data.perforce.changelists.length > 0) return true
+  if (data.slack && !data.slack.error && data.slack.messages.length > 0) return true
+  if (data.files && !data.files.error && data.files.changedFiles.length > 0) return true
+  if (data.calendar && !data.calendar.error && data.calendar.events.length > 0) return true
+  return false
+}
+
 export function buildRawText(
   collectedData: CollectedData[],
   dateRange: DateRange,
@@ -72,6 +89,7 @@ export function buildRawText(
   allocation: AllocationResult[] | null = null
 ): string {
   const lines: string[] = []
+  const activeData = collectedData.filter(hasAnyData)
 
   if (preamble.trim()) {
     lines.push(resolvePlaceholders(preamble, dateRange))
@@ -88,7 +106,7 @@ export function buildRawText(
     lines.push('')
   }
 
-  for (const data of collectedData) {
+  for (const data of activeData) {
     lines.push('---')
     lines.push('')
     lines.push(`## ${data.projectName}`)

@@ -8,7 +8,8 @@ import {
   DEFAULT_PREAMBLE,
   DEFAULT_PREAMBLE_WEEKLY,
   DEFAULT_PREAMBLE_MONTHLY,
-  DEFAULT_POSTAMBLE
+  DEFAULT_POSTAMBLE,
+  APP_VERSION
 } from '../constants'
 
 export interface AppSettings {
@@ -114,7 +115,7 @@ export interface GoogleCalendarProjectConfig {
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  version: '1.0.0',
+  version: APP_VERSION,
   general: {
     dataDir: '',
     logRetentionDays: 30,

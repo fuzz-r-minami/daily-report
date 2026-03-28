@@ -163,6 +163,15 @@ export function Settings(): JSX.Element {
       {/* Google Calendar */}
       <section className="card space-y-4">
         <h3 className="section-title">📅 Google Calendar 連携</h3>
+        <div className="text-xs text-muted-foreground space-y-0.5 p-2 bg-secondary/40 rounded">
+          <p>Google Cloud Console で以下の手順を完了してから Client ID / Client Secret を入力してください。</p>
+          <ol className="list-decimal list-inside space-y-0.5 mt-1">
+            <li>プロジェクトを作成し、<span className="font-medium text-foreground">Google Calendar API</span> を有効化</li>
+            <li>「認証情報」から OAuth 2.0 クライアント ID を作成（アプリケーションの種類: <span className="font-medium text-foreground">デスクトップアプリ</span>）</li>
+            <li>発行された Client ID と Client Secret を下記に入力して保存</li>
+            <li>「Googleアカウントで認証」をクリックして連携を完了</li>
+          </ol>
+        </div>
         <div className="space-y-1">
           <label className="text-xs font-medium text-muted-foreground">Client ID</label>
           <input

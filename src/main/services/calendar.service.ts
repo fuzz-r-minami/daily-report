@@ -162,16 +162,17 @@ export function startOAuthFlow(clientId: string, clientSecret: string): Promise<
 
 // ── Calendar API ──────────────────────────────────────────────────
 
-/** テスト接続: 認証成功時にカレンダーオーナーのメールを返す */
+/** テスト接続: カレンダー一覧を取得して接続確認 */
 export async function testCalendarConnection(
   clientId: string,
   clientSecret: string,
   refreshToken: string
 ): Promise<string> {
   const accessToken = await refreshAccessToken(clientId, clientSecret, refreshToken)
-  const raw = await httpsGet('https://www.googleapis.com/oauth2/v2/userinfo', accessToken)
+  const raw = await httpsGet('https://www.googleapis.com/calendar/v3/users/me/calendarList?maxResults=1', accessToken)
   const json = JSON.parse(raw)
-  return `接続成功: ${json.email ?? '(不明)'}`
+  const primary = (json.items ?? []).find((c: { primary?: boolean; summary?: string }) => c.primary)
+  return `接続成功: ${primary?.summary ?? 'カレンダー取得成功'}`
 }
 
 /** 指定期間のカレンダーイベントを取得 */
