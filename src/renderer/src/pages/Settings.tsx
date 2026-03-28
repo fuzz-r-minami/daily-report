@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAppStore } from '../store/app.store'
 import { api } from '../lib/api'
+import type { SlackWorkspace } from '@shared/types/settings.types'
 
 type StatusMsg = { ok: boolean; msg: string }
 
@@ -28,6 +29,12 @@ export function Settings(): JSX.Element {
   const [gcStatus, setGcStatus] = useState<StatusMsg | null>(null)
   const [gcSaving, setGcSaving] = useState(false)
   const [gcAuthing, setGcAuthing] = useState(false)
+
+  // Slack
+  const [slackAuthing, setSlackAuthing] = useState(false)
+  const [slackStatus, setSlackStatus] = useState<StatusMsg | null>(null)
+  const [slackTestResults, setSlackTestResults] = useState<Record<string, StatusMsg>>({})
+  const slackWorkspaces: SlackWorkspace[] = settings?.slackWorkspaces ?? []
 
   useEffect(() => {
     if (!settings) return
@@ -124,6 +131,42 @@ export function Settings(): JSX.Element {
     setGcStatus({ ok: r.success, msg: r.success ? r.data : r.error })
   }
 
+  const handleSlackAddWorkspace = async (): Promise<void> => {
+    setSlackAuthing(true)
+    setSlackStatus(null)
+    try {
+      const r = await api.slackStartAuth()
+      if (r.success) {
+        setSlackStatus({ ok: true, msg: `${r.data.workspaceName} を連携しました` })
+        const updated = await api.settingsGet()
+        if (updated.success) setSettings(updated.data)
+      } else {
+        setSlackStatus({ ok: false, msg: r.error })
+      }
+    } finally {
+      setSlackAuthing(false)
+    }
+  }
+
+  const handleSlackDeleteWorkspace = async (workspaceId: string): Promise<void> => {
+    const r = await api.slackDeleteWorkspace(workspaceId)
+    if (r.success) {
+      const updated = await api.settingsGet()
+      if (updated.success) setSettings(updated.data)
+    } else {
+      setSlackStatus({ ok: false, msg: r.error })
+    }
+  }
+
+  const handleSlackTest = async (workspace: SlackWorkspace): Promise<void> => {
+    setSlackTestResults((prev) => ({ ...prev, [workspace.workspaceId]: { ok: true, msg: 'テスト中...' } }))
+    const r = await api.slackTest(workspace.credentialKey)
+    setSlackTestResults((prev) => ({
+      ...prev,
+      [workspace.workspaceId]: { ok: r.success, msg: r.success ? r.data : r.error }
+    }))
+  }
+
   return (
     <div className="p-6 max-w-2xl mx-auto space-y-6">
       <h2 className="text-xl font-bold">設定</h2>
@@ -206,6 +249,57 @@ export function Settings(): JSX.Element {
           {gcStatus && (
             <span className={`text-xs ${gcStatus.ok ? 'text-green-600' : 'text-destructive'}`}>
               {gcStatus.ok ? '✓' : '✗'} {gcStatus.msg}
+            </span>
+          )}
+        </div>
+      </section>
+
+      {/* Slack */}
+      <section className="card space-y-4">
+        <h3 className="section-title">💬 Slack 連携</h3>
+        <p className="text-xs text-muted-foreground">
+          ワークスペースごとに1回認証するだけで、そのワークスペース内の全チャンネルをプロジェクトで利用できます。
+        </p>
+
+        {slackWorkspaces.length > 0 && (
+          <div className="space-y-2">
+            {slackWorkspaces.map((ws) => (
+              <div key={ws.workspaceId} className="flex items-center gap-2 p-2 bg-secondary/40 rounded text-sm">
+                <span className="flex-1 font-medium">{ws.workspaceName}</span>
+                <span className="text-xs text-muted-foreground">{ws.workspaceId}</span>
+                <button
+                  onClick={() => handleSlackTest(ws)}
+                  className="text-xs px-2 py-1 border border-border rounded hover:bg-accent"
+                >
+                  接続テスト
+                </button>
+                <button
+                  onClick={() => handleSlackDeleteWorkspace(ws.workspaceId)}
+                  className="text-xs px-2 py-1 text-destructive border border-destructive/40 rounded hover:bg-destructive/10"
+                >
+                  削除
+                </button>
+                {slackTestResults[ws.workspaceId] && (
+                  <span className={`text-xs ${slackTestResults[ws.workspaceId].ok ? 'text-green-600' : 'text-destructive'}`}>
+                    {slackTestResults[ws.workspaceId].ok ? '✓' : '✗'} {slackTestResults[ws.workspaceId].msg}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={handleSlackAddWorkspace}
+            disabled={slackAuthing}
+            className="btn-primary text-xs py-1.5"
+          >
+            {slackAuthing ? '認証中...' : '＋ ワークスペースを追加'}
+          </button>
+          {slackStatus && (
+            <span className={`text-xs ${slackStatus.ok ? 'text-green-600' : 'text-destructive'}`}>
+              {slackStatus.ok ? '✓' : '✗'} {slackStatus.msg}
             </span>
           )}
         </div>

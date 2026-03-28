@@ -42,7 +42,8 @@ const api = {
   p4Fetch: (projectId: string, dateRange: unknown) => ipcRenderer.invoke('p4:fetch', projectId, dateRange),
 
   // Slack
-  slackStartAuth: (projectId: string) => ipcRenderer.invoke('slack:startAuth', projectId),
+  slackStartAuth: () => ipcRenderer.invoke('slack:startAuth'),
+  slackDeleteWorkspace: (workspaceId: string) => ipcRenderer.invoke('slack:deleteWorkspace', workspaceId),
   slackTest: (credentialKey: string) => ipcRenderer.invoke('slack:test', credentialKey),
   slackFetchChannels: (credentialKey: string) => ipcRenderer.invoke('slack:fetchChannels', credentialKey),
   slackFetch: (projectId: string, dateRange: unknown) => ipcRenderer.invoke('slack:fetch', projectId, dateRange),

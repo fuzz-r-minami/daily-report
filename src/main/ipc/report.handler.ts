@@ -84,7 +84,7 @@ type CalendarPrefetchCache = {
 // ── 一括事前取得 ──────────────────────────────────────────────────
 
 /**
- * Slack: credentialKey ごとに、対象プロジェクト全チャンネルをまとめて1回取得する。
+ * Slack: ワークスペース（credentialKey）ごとに、対象プロジェクト全チャンネルをまとめて1回取得する。
  */
 async function prefetchSlackAll(
   win: BrowserWindow,
@@ -93,11 +93,15 @@ async function prefetchSlackAll(
 ): Promise<SlackPrefetchCache> {
   const cache: SlackPrefetchCache = new Map()
 
+  const slackWorkspaces = settingsStore.getSettings().slackWorkspaces ?? []
+
   // credentialKey → 使用している全 channelId を集約
   const credToChannels = new Map<string, { channelIds: string[]; baseConfig: NonNullable<Project['slack']> }>()
   for (const project of projects) {
     if (!project.slack?.enabled) continue
-    const key = project.slack.credentialKey
+    const workspace = slackWorkspaces.find((w) => w.workspaceId === project.slack!.workspaceId)
+    if (!workspace) continue
+    const key = workspace.credentialKey
     if (!credToChannels.has(key)) {
       credToChannels.set(key, { channelIds: [], baseConfig: project.slack })
     }
@@ -263,7 +267,9 @@ function collectSlackData(
 
   sendProgress(win, project.id, project.name, 'slack', 'running')
 
-  const cached = cache.get(project.slack.credentialKey)
+  const slackWorkspaces = settingsStore.getSettings().slackWorkspaces ?? []
+  const workspace = slackWorkspaces.find((w) => w.workspaceId === project.slack!.workspaceId)
+  const cached = workspace ? cache.get(workspace.credentialKey) : undefined
   if (!cached) {
     sendProgress(win, project.id, project.name, 'slack', 'skipped')
     return undefined

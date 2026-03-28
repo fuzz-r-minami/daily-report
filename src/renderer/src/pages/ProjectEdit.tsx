@@ -28,7 +28,7 @@ const newPerforceRepo = (): PerforceProjectConfig => ({
   enabled: true, port: '', username: '', depotPath: '//', credentialKey: ''
 })
 const EMPTY_SLACK: SlackProjectConfig = {
-  enabled: false, workspaceId: '', channelIds: [], credentialKey: ''
+  enabled: false, workspaceId: '', channelIds: []
 }
 const EMPTY_GOOGLE_CALENDAR: GoogleCalendarProjectConfig = {
   enabled: false
@@ -37,7 +37,8 @@ const EMPTY_GOOGLE_CALENDAR: GoogleCalendarProjectConfig = {
 export function ProjectEdit(): JSX.Element {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { projects, addProject, updateProject } = useAppStore()
+  const { projects, addProject, updateProject, settings } = useAppStore()
+  const slackWorkspaces = settings?.slackWorkspaces ?? []
 
   const isNew = !id
   const existing = projects.find((p) => p.id === id)
@@ -58,8 +59,6 @@ export function ProjectEdit(): JSX.Element {
   const [error, setError] = useState<string | null>(null)
   // Credentials keyed by repo id
   const [gitTokens, setGitTokens] = useState<Record<string, string>>({})
-  const [slackAuthed, setSlackAuthed] = useState(false)
-  const [slackAuthing, setSlackAuthing] = useState(false)
   // Test results keyed by repo id or 'slack'
   const [testResults, setTestResults] = useState<Record<string, { msg: string; ok: boolean }>>({})
 
@@ -72,11 +71,6 @@ export function ProjectEdit(): JSX.Element {
           })
         }
       }
-    }
-    if (existing?.slack?.credentialKey) {
-      api.credentialGet(existing.slack.credentialKey).then((r) => {
-        if (r.success && r.data) setSlackAuthed(true)
-      })
     }
     if (existing?.perforceRepos) {
       for (const repo of existing.perforceRepos) {
@@ -97,10 +91,6 @@ export function ProjectEdit(): JSX.Element {
         await api.credentialSet(key, token)
         repo.credentialKey = key
       }
-    }
-    // slack トークンは OAuth 完了時に既に保存済みなので credentialKey のみ確認
-    if (slack.enabled && !proj.slack?.credentialKey) {
-      proj.slack = { ...proj.slack!, credentialKey: `slack-token-${proj.id}` }
     }
     for (const repo of proj.perforceRepos || []) {
       const pwd = perforcePasswords[repo.id]
@@ -161,29 +151,10 @@ export function ProjectEdit(): JSX.Element {
     setTestResults((prev) => ({ ...prev, [repo.id]: { msg: r.success ? r.data : r.error, ok: r.success } }))
   }
 
-  const handleSlackAuth = async (): Promise<void> => {
-    if (!id && !isNew) return
-    setSlackAuthing(true)
-    setTestResults((prev) => ({ ...prev, slack: undefined as never }))
-    try {
-      // 新規プロジェクトの場合は一時的な ID を使用
-      const projectId = id || `new-${Date.now()}`
-      const r = await api.slackStartAuth(projectId)
-      if (r.success) {
-        setSlackAuthed(true)
-        setSlack((prev) => ({ ...prev, credentialKey: r.data }))
-        setTestResults((prev) => ({ ...prev, slack: { msg: '認証完了', ok: true } }))
-      } else {
-        setTestResults((prev) => ({ ...prev, slack: { msg: r.error, ok: false } }))
-      }
-    } finally {
-      setSlackAuthing(false)
-    }
-  }
-
   const handleTestSlack = async (): Promise<void> => {
-    const credKey = slack.credentialKey || `slack-token-${id}`
-    const r = await api.slackTest(credKey)
+    const workspace = slackWorkspaces.find((w) => w.workspaceId === slack.workspaceId)
+    if (!workspace) return
+    const r = await api.slackTest(workspace.credentialKey)
     setTestResults((prev) => ({ ...prev, slack: { msg: r.success ? r.data : r.error, ok: r.success } }))
   }
 
@@ -447,18 +418,24 @@ export function ProjectEdit(): JSX.Element {
               </label>
               {slack.enabled && (
                 <>
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={handleSlackAuth}
-                      disabled={slackAuthing}
-                      className="px-3 py-1.5 text-xs bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50"
-                    >
-                      {slackAuthing ? '認証中...' : slackAuthed ? 'Slackと再連携' : 'Slackと連携'}
-                    </button>
-                    {slackAuthed && !slackAuthing && (
-                      <span className="text-xs text-green-600">✓ 連携済み</span>
-                    )}
-                  </div>
+                  {slackWorkspaces.length === 0 ? (
+                    <p className="text-xs text-amber-600">
+                      ⚠ 設定画面（⚙️）で Slack ワークスペースを追加してください。
+                    </p>
+                  ) : (
+                    <Field label="ワークスペース">
+                      <select
+                        value={slack.workspaceId}
+                        onChange={(e) => setSlack({ ...slack, workspaceId: e.target.value })}
+                        className="input-field"
+                      >
+                        <option value="">選択してください</option>
+                        {slackWorkspaces.map((ws) => (
+                          <option key={ws.workspaceId} value={ws.workspaceId}>{ws.workspaceName}</option>
+                        ))}
+                      </select>
+                    </Field>
+                  )}
                   <Field label="チャンネルID（カンマ区切り）">
                     <input type="text" value={slack.channelIds.join(',')}
                       onChange={(e) => setSlack({ ...slack, channelIds: e.target.value.split(',').map(s => s.trim()) })}
@@ -467,7 +444,7 @@ export function ProjectEdit(): JSX.Element {
                   </Field>
                   <div className="pt-2 border-t border-border flex items-center gap-3">
                     <button onClick={handleTestSlack}
-                      disabled={!slackAuthed}
+                      disabled={!slack.workspaceId}
                       className="px-3 py-1.5 text-xs border border-border rounded-md hover:bg-accent disabled:opacity-40">
                       接続テスト
                     </button>

@@ -19,6 +19,7 @@ export interface AppSettings {
   templates: Template[]
   claude: ClaudeSettings
   googleCalendar?: GoogleCalendarSettings
+  slackWorkspaces?: SlackWorkspace[]
 }
 
 export interface GeneralSettings {
@@ -69,11 +70,16 @@ export interface PerforceProjectConfig {
   credentialKey: string  // P4PASSWD / チケット（keytar）
 }
 
+export interface SlackWorkspace {
+  workspaceId: string
+  workspaceName: string
+  credentialKey: string  // "slack-token-{workspaceId}"
+}
+
 export interface SlackProjectConfig {
   enabled: boolean
   workspaceId: string
   channelIds: string[]
-  credentialKey: string
 }
 
 export interface FilePathConfig {

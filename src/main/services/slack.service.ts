@@ -136,6 +136,15 @@ export function startSlackOAuth(projectId: string): Promise<string> {
   })
 }
 
+export async function getWorkspaceInfo(token: string): Promise<{ workspaceId: string; workspaceName: string }> {
+  const client = new WebClient(token)
+  const auth = await client.auth.test()
+  return {
+    workspaceId: (auth.team_id as string | undefined) ?? '',
+    workspaceName: (auth.team as string | undefined) ?? '不明'
+  }
+}
+
 export async function testSlackConnection(token: string): Promise<string> {
   const client = new WebClient(token)
   const auth = await client.auth.test()

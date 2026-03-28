@@ -1,17 +1,42 @@
 import { ipcMain } from 'electron'
 import type { IpcResult } from '@shared/types/ipc.types'
 import type { DateRange, CollectedData } from '@shared/types/report.types'
+import type { SlackWorkspace } from '@shared/types/settings.types'
 import * as settingsStore from '../store/settings.store'
 import * as credentialsStore from '../store/credentials.store'
-import { testSlackConnection, fetchSlackChannels, fetchSlackMessages, startSlackOAuth } from '../services/slack.service'
+import { testSlackConnection, fetchSlackChannels, fetchSlackMessages, startSlackOAuth, getWorkspaceInfo } from '../services/slack.service'
 
 export function registerSlackHandlers(): void {
-  ipcMain.handle('slack:startAuth', async (_, projectId: string): Promise<IpcResult<string>> => {
+  ipcMain.handle('slack:startAuth', async (): Promise<IpcResult<SlackWorkspace>> => {
     try {
-      const token = await startSlackOAuth(projectId)
-      const credKey = `slack-token-${projectId}`
+      const token = await startSlackOAuth('global')
+      const { workspaceId, workspaceName } = await getWorkspaceInfo(token)
+      const credKey = `slack-token-${workspaceId}`
       await credentialsStore.setCredential(credKey, token)
-      return { success: true, data: credKey }
+
+      // settings.slackWorkspaces を更新（既存エントリは上書き）
+      const settings = settingsStore.getSettings()
+      const existing = settings.slackWorkspaces ?? []
+      const updated = existing.filter((w) => w.workspaceId !== workspaceId)
+      const workspace: SlackWorkspace = { workspaceId, workspaceName, credentialKey: credKey }
+      settingsStore.saveSettings({ ...settings, slackWorkspaces: [...updated, workspace] })
+
+      return { success: true, data: workspace }
+    } catch (e) {
+      return { success: false, error: String(e) }
+    }
+  })
+
+  ipcMain.handle('slack:deleteWorkspace', async (_, workspaceId: string): Promise<IpcResult<void>> => {
+    try {
+      const settings = settingsStore.getSettings()
+      const workspace = (settings.slackWorkspaces ?? []).find((w) => w.workspaceId === workspaceId)
+      if (workspace) {
+        await credentialsStore.deleteCredential(workspace.credentialKey)
+      }
+      const updated = (settings.slackWorkspaces ?? []).filter((w) => w.workspaceId !== workspaceId)
+      settingsStore.saveSettings({ ...settings, slackWorkspaces: updated })
+      return { success: true, data: undefined }
     } catch (e) {
       return { success: false, error: String(e) }
     }
@@ -50,7 +75,12 @@ export function registerSlackHandlers(): void {
         if (!project?.slack?.enabled) {
           return { success: true, data: { messages: [], fetchedAt: new Date().toISOString() } }
         }
-        const token = await credentialsStore.getCredential(project.slack.credentialKey)
+        const settings = settingsStore.getSettings()
+        const workspace = (settings.slackWorkspaces ?? []).find(
+          (w) => w.workspaceId === project.slack!.workspaceId
+        )
+        if (!workspace) return { success: false, error: 'ワークスペースが設定されていません' }
+        const token = await credentialsStore.getCredential(workspace.credentialKey)
         if (!token) return { success: false, error: 'Slack トークンが設定されていません' }
         const result = await fetchSlackMessages(project.slack, dateRange, token)
         return { success: true, data: result }
