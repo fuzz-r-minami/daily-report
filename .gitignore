@@ -11,10 +11,6 @@ logs/
 *.log
 npm-debug.log*
 
-# Build artifacts
-build/*.ico
-build/*.png
-
 # Editor
 .vscode/settings.json
 .idea/
