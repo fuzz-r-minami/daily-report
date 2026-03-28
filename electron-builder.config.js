@@ -2,6 +2,7 @@
 module.exports = {
   appId: 'com.drepo.app',
   productName: 'drepo',
+  artifactName: '${productName}-${version}.${ext}',
   publish: {
     provider: 'github',
     owner: 'fuzz-r-minami',
@@ -24,14 +25,12 @@ module.exports = {
     oneClick: false,
     allowToChangeInstallationDirectory: true,
     installerIcon: 'build/icon.ico',
-    uninstallerIcon: 'build/icon.ico',
-    artifactName: '${productName}-${version}-setup.${ext}'
+    uninstallerIcon: 'build/icon.ico'
   },
   msi: {
     oneClick: false,
     perMachine: false,
     runAfterFinish: true,
-    additionalLightArgs: ['-cultures:ja-JP'],
-    artifactName: '${productName}-${version}-setup.${ext}'
+    additionalLightArgs: ['-cultures:ja-JP']
   }
 }
