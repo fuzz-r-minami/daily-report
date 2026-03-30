@@ -1,217 +1,273 @@
-# 日報ジェネレーター
+# drepo
 
-Git / SVN / Perforce / Redmine / Slack / Google Calendar から作業履歴を自動収集し、日報・週報・月報を生成する Windows デスクトップアプリです。
+**English | [日本語](README.ja.md)**
 
----
+A Windows desktop app that automatically collects work history from Git, SVN, Perforce, Redmine, Slack, and Google Calendar to generate daily, weekly, and monthly reports.
 
-## 機能
-
-- **日報 / 週報 / 月報の自動生成** — 指定した期間の作業履歴を収集してレポートを作成
-- **按分計算** — 月単位でプロジェクトごとの稼働人日を自動計算
-- **Claude AI 整形** — 収集した履歴データをもとに作業内容を自然な文章に整形
-- **メール送信** — 作成したレポートをそのままメーラーで送信
-- **自動アップデート** — 新しいバージョンがリリースされると通知
+**Languages:** 日本語 / English / 简体中文 / 繁體中文 / 한국어
 
 ---
 
-## はじめに
+## Output Example
 
-### インストール
+After collection, the app produces Markdown text like the following. Use it as-is or let Claude AI rewrite it into natural prose.
 
-1. [Releases](https://github.com/fuzz-r-minami/daily-report/releases) から最新の `drepo Setup x.x.x.exe` をダウンロードしてインストール
-2. 起動後、まず **プロジェクト** を追加する
-
-### 最初にやること
-
-1. **プロジェクトを追加する**（左メニュー「プロジェクト」→「+ 新規追加」）
-2. プロジェクトに使っているツール（Git / SVN / Perforce / Redmine / Slack など）を設定する
-3. ダッシュボードでプロジェクトと期間を選んでレポートを生成する
+```markdown
+Hello,
+This is my work report for 2026-03-28.
 
 ---
 
-## プロジェクト設定
+## Internal Business System
 
-プロジェクトごとに複数の連携ソースを設定できます。
+### Work Summary
+- TBA
+
+### History
+#### Git Commits (3)
+- [2026/03/28 11:42 | a1b2c3d | Fix: resolve pagination bug on search screen](https://github.com/example/repo/commit/a1b2c3d...)
+- [2026/03/28 14:15 | e4f5g6h | Feat: add CSV export to user list](https://github.com/example/repo/commit/e4f5g6h...)
+- [2026/03/28 17:03 | i7j8k9l | Refactor: consolidate API client](https://github.com/example/repo/commit/i7j8k9l...)
+
+#### Redmine Tickets (2)
+- [2026/03/28 14:20 | #1042 [In Progress] User list CSV export](https://redmine.example.com/issues/1042)
+- [2026/03/28 17:05 | #987 [Resolved] Pagination bug on search screen](https://redmine.example.com/issues/987)
+
+#### Slack Messages (2)
+- [2026/03/28 10:31 | Will handle the export feature for #1042 today](https://slack.com/archives/...)
+- [2026/03/28 16:58 | Fixed the pagination bug. Please review.](https://slack.com/archives/...)
+
+#### Meetings (1)
+- [2026/03/28 13:00 | Weekly team sync](https://calendar.google.com/...)
+
+---
+
+Thank you.
+```
+
+> **After Claude AI formatting**
+>
+> The "Work Summary — TBA" section is automatically written based on the collected history:
+> ```
+> ### Work Summary
+> - Investigated and fixed the pagination bug (#987); sent for review today
+> - Implemented CSV export for user list (#987) alongside API client consolidation
+> - Shared progress at weekly team sync
+> ```
+
+---
+
+## Features
+
+- **Daily / Weekly / Monthly report generation** — Collect work history for a given period and build a report
+- **Workload allocation** — Automatically calculate person-days per project for a given month
+- **Claude AI formatting** — Rewrite raw history into natural prose using the Claude CLI
+- **Email sending** — Open the report directly in your default mail client
+- **Multilingual UI** — Japanese / English / 简体中文 / 繁體中文 / 한국어 (selected on first launch)
+- **Auto-update** — Notifies you when a new version is available
+
+---
+
+## Getting Started
+
+### Installation
+
+1. Download the latest `drepo Setup x.x.x.exe` from [Releases](https://github.com/fuzz-r-minami/daily-report/releases) and install it
+2. On first launch, select your language
+3. Add a **Project**
+
+### Quick Start
+
+1. **Add a project** (left sidebar → Projects → + New)
+2. Configure the integrations you use (Git / SVN / Perforce / Redmine / Slack, etc.)
+3. Go to the Dashboard, select a project and date range, and generate a report
+
+---
+
+## Project Settings
+
+Each project can have multiple integration sources configured.
 
 ### Git
 
-| 項目 | 説明 |
-|------|------|
-| ローカルパス | ローカルのリポジトリフォルダパス |
-| ブランチ | 対象ブランチ（例: `main`） |
-| 認証 | HTTPS の場合は Personal Access Token、SSH は既存の `~/.ssh/` キーを自動利用 |
+| Field | Description |
+|-------|-------------|
+| Local path | Path to your local repository folder |
+| Branch | Target branch (e.g. `main`) |
+| Auth | Personal Access Token for HTTPS; SSH uses your existing `~/.ssh/` keys automatically |
 
 ### SVN
 
-| 項目 | 説明 |
-|------|------|
-| ローカルパス | ローカルの作業コピーパス |
-| リポジトリ URL | SVN リポジトリの URL |
-| ユーザー名 | コミットの絞り込みに使用（認証情報は SVN クライアントの設定を利用） |
+| Field | Description |
+|-------|-------------|
+| Local path | Path to your local working copy |
+| Repository URL | URL of the SVN repository |
+| Username | Used to filter commits (authentication uses the SVN client's saved credentials) |
 
-> SVN 連携には TortoiseSVN のインストールが必要です。
+> SVN integration requires TortoiseSVN or a compatible SVN client.
 
 ### Perforce
 
-| 項目 | 説明 |
-|------|------|
-| サーバー (P4PORT) | 接続先（例: `perforce:1666`） |
-| ユーザー名 | Perforce のユーザー名 |
-| デポパス | 対象のデポパス（例: `//depot/myproject/...`） |
-| パスワード / チケット | 認証情報 |
+| Field | Description |
+|-------|-------------|
+| Server (P4PORT) | Server address (e.g. `perforce:1666`) |
+| Username | Your Perforce username |
+| Depot path | Target depot path (e.g. `//depot/myproject/...`) |
+| Password / ticket | Credentials |
 
-> Perforce 連携には p4 コマンドラインクライアントのインストールが必要です。
+> Perforce integration requires the p4 command-line client.
 
 ### Slack
 
-Slack トークンはワークスペース単位で管理します。同じワークスペースであれば複数プロジェクトでトークンを共有できます。
+Tokens are managed per workspace. Multiple projects in the same workspace share one token.
 
-**事前準備（設定画面で1回だけ）：**
+**One-time setup (in Settings):**
 
-1. 設定画面（⚙️）の **「Slack 連携」** セクションで **「＋ ワークスペースを追加」** をクリック
-2. ブラウザが開くので Slack でアプリを承認する
-3. ワークスペース名が一覧に追加されたら完了
+1. Open Settings (⚙️) and click **"+ Add Workspace"** in the Slack section
+2. Authorize the app in your browser
+3. The workspace name appears in the list — you're done
 
-**プロジェクトへの設定：**
+**Per-project setup:**
 
-1. プロジェクト設定の **Slack タブ** で「Slack 連携を有効にする」をオンにする
-2. ドロップダウンから対象ワークスペースを選択する
-3. チャンネル ID（カンマ区切り）を入力して保存する
+1. In the project's **Slack tab**, enable Slack integration
+2. Select the workspace from the dropdown
+3. Enter channel IDs (comma-separated) and save
 
-収集されるのは自分が投稿したメッセージとスレッド返信です。
+Only messages and thread replies posted by you are collected.
 
 ### Redmine
 
-| 項目 | 説明 |
-|------|------|
-| Redmine URL | Redmine サーバーの URL（例: `https://redmine.example.com`） |
-| プロジェクト識別子 | 特定プロジェクトに絞る場合に入力（空の場合は全プロジェクトが対象） |
-| API アクセスキー | Redmine の「個人設定」ページで確認できるキー |
-| Basic 認証 | Basic 認証がかかっている場合のみ入力 |
+| Field | Description |
+|-------|-------------|
+| Redmine URL | URL of your Redmine server (e.g. `https://redmine.example.com`) |
+| Project identifier | Leave blank for all projects, or enter a specific identifier |
+| API access key | Found in Redmine under My Account |
+| Basic auth | Only needed if a reverse proxy adds HTTP Basic authentication |
 
-収集されるのは、指定期間内に自分が**作成または更新したチケット**です。
+Only tickets you **created or updated** within the specified period are collected.
 
 ### Google Calendar
 
-設定画面（⚙️）で Client ID / Client Secret を登録し、認証を行ってください。
+Register your Client ID and Client Secret in Settings (⚙️), then click "Sign in with Google" to complete the connection.
 
-プロジェクト名がイベントのタイトルに含まれるイベントが収集されます。辞退・未回答の予定は除外されます。
+Events whose title contains the project name are collected. Declined and unanswered events are excluded.
 
-### ファイル監視
+### File Watch
 
-指定したフォルダ内で変更があったファイルを収集します。フォルダパスと対象期間内に更新されたファイルが履歴として記録されます。
-
----
-
-## レポートの生成
-
-### 種別と期間
-
-| 種別 | 説明 |
-|------|------|
-| 📅 日報 | 指定した1日分の履歴を収集 |
-| 📆 週報 | 指定した日から過去7日間の履歴を収集 |
-| 🗓 月報 | 指定した月の全履歴を収集し、按分計算も同時に実行 |
-| 📊 按分計算 | 月単位でプロジェクトごとの稼働人日を計算（レポートは生成しない） |
-
-### 按分計算について
-
-Git / SVN / Perforce / Redmine / Slack / Google Calendar に活動があった日を稼働日とし、複数プロジェクトで同じ日に活動があった場合は 1/N 日として按分します。
-
-### 空プロジェクトの除外
-
-対象期間内にいずれの連携サービスからも1件もデータが取得できなかったプロジェクトは、レポートから自動的に除外されます。
+Collects files modified under specified folders within the date range.
 
 ---
 
-## レポートのプレビューと送信
+## Generating Reports
 
-収集が完了するとプレビュー画面に移動します。
+### Report Types
 
-| 操作 | 説明 |
-|------|------|
-| 件名の編集 | メール件名をプレビュー画面で直接編集できます |
-| 🤖 Claude で整形 | 収集データをもとに作業内容を AI が文章化します（要 Claude 設定） |
-| ✏️ 編集 / 👁 プレビュー | Markdown テキストを直接編集できます |
-| 📋 コピー | レポートをクリップボードにコピー |
-| 💾 保存 | Markdown ファイルとして保存 |
-| 📧 mailto: | デフォルトのメーラーでメール作成画面を開きます（ボタンにカーソルを合わせると送信先を確認できます） |
+| Type | Description |
+|------|-------------|
+| 📅 Daily | Collects history for a single day |
+| 📆 Weekly | Collects history for the 7 days ending on the selected date |
+| 🗓 Monthly | Collects history for the entire selected month |
+| 📊 Allocation | Calculates person-days per project for a month (no report text generated) |
 
----
+### Workload Allocation
 
-## テンプレート設定
+Days with activity in Git / SVN / Perforce / Redmine / Slack / Google Calendar count as working days. When multiple projects have activity on the same day, each is credited 1/N of a day.
 
-レポートの形式はテンプレートで管理します（左メニュー「テンプレート」）。
+### Empty Project Exclusion
 
-| 項目 | 説明 |
-|------|------|
-| 前文 | レポート冒頭に挿入される文章 |
-| 末文 | レポート末尾に挿入される文章 |
-| 件名テンプレート | メール件名のひな形 |
-| 送信先 | メール送信先アドレス（複数可） |
-| Claude システムプロンプト | AI 整形時の指示内容 |
-
-**前文・末文で使える変数：**
-
-| 変数 | 内容 | 対応種別 |
-|------|------|---------|
-| `{{date}}` | 日付（例: `2026-03-28`） | 日報 |
-| `{{week_range}}` | 期間（例: `2026-03-22 〜 2026-03-28`） | 週報 |
-| `{{month}}` | 年月（例: `2026年3月`） | 月報 |
+Projects with no data collected from any integration for the selected period are automatically omitted from the report.
 
 ---
 
-## 設定（⚙️）
+## Preview and Send
 
-### Claude AI 整形
+Once collection is complete, the preview screen opens.
 
-インストール済みの Claude CLI を使って収集データを整形します。
-設定画面で「Claude 整形を有効にする」をオンにしてください。
-
-### Slack 連携
-
-ワークスペースごとに PKCE 方式の OAuth でトークンを取得・管理します。複数ワークスペースの追加・削除・接続テストが行えます。詳細は「プロジェクト設定 > Slack」を参照してください。
-
-### Google Calendar 連携
-
-Google Cloud Console で OAuth 2.0 クライアント ID を作成し、Client ID と Client Secret を設定画面に登録した後、「Google アカウントで認証」をクリックして連携を完了してください。
-
-手順の詳細は設定画面内の説明を参照してください。
-
-### データ保存先
-
-収集データや保存したレポートの保存先フォルダを確認・開くことができます。
-
-### アップデート
-
-起動後に自動でアップデートを確認します。「更新を確認」ボタンで手動確認も可能です。新しいバージョンが見つかった場合はダウンロードし、「再起動して適用」で更新されます。
+| Action | Description |
+|--------|-------------|
+| Edit subject | Edit the email subject directly in the preview |
+| 🤖 Format with Claude | AI rewrites the work summary from the collected history (requires Claude setup) |
+| ✏️ Edit / 👁 Preview | Edit the Markdown text directly |
+| 📋 Copy | Copy the report to clipboard |
+| 💾 Save | Save as a Markdown file |
+| 📧 mailto: | Open your default mail client with the report pre-filled (hover the button to see recipients) |
 
 ---
 
-## 認証情報の管理
+## Templates
 
-パスワード・API キー・トークン類はすべて Windows の資格情報マネージャーに保存されます。設定ファイルには保存されません。
+Report format is managed via templates (left sidebar → Templates).
+
+| Field | Description |
+|-------|-------------|
+| Preamble | Text inserted at the top of the report |
+| Postamble | Text inserted at the bottom |
+| Subject template | Template for the email subject line |
+| Recipients | Email addresses (one per line) |
+| Claude system prompt | Instructions for the AI formatting step |
+
+**Variables available in preamble / postamble:**
+
+| Variable | Value | Report type |
+|----------|-------|-------------|
+| `{{date}}` | Date (e.g. `2026-03-28`) | Daily |
+| `{{week_range}}` | Range (e.g. `2026-03-22 – 2026-03-28`) | Weekly |
+| `{{month}}` | Month (e.g. `2026年3月`) | Monthly |
 
 ---
 
-## 設定をすべてリセットする
+## Settings (⚙️)
 
-設定は 2 か所に分かれて保存されています。完全にリセットするには両方を削除してください。
+### Language
 
-### 1. 設定ファイルを削除する
+A language selection dialog appears on first launch. You can change it any time in Settings.
 
-エクスプローラーのアドレスバーに以下を入力して開き、`config.json` を削除します。
+### Claude AI Formatting
+
+Uses the locally installed Claude CLI to rewrite collected data into prose. Enable "Claude formatting" in Settings.
+
+### Slack
+
+Tokens are obtained and managed per workspace via PKCE OAuth. You can add, remove, and test workspaces in Settings. See [Project Settings → Slack](#slack) for details.
+
+### Google Calendar
+
+Create an OAuth 2.0 Client ID in Google Cloud Console, enter the Client ID and Client Secret in Settings, then click "Sign in with Google" to complete setup. Step-by-step instructions are shown in the Settings screen.
+
+### Data Directory
+
+View or open the folder where collected data and saved reports are stored.
+
+### Updates
+
+The app checks for updates automatically at launch. Use the "Check for Updates" button for a manual check. When a new version is found, download it and click "Restart & Apply".
+
+---
+
+## Credential Storage
+
+Passwords, API keys, and tokens are stored in the Windows Credential Manager — never in the settings file.
+
+---
+
+## Full Reset
+
+Settings are stored in two places. Delete both to reset completely.
+
+### 1. Delete the settings file
+
+Open the following path in Explorer and delete `config.json`:
 
 ```
 %APPDATA%\drepo
 ```
 
-プロジェクト・テンプレート・Claude / Google Calendar の設定などがすべて初期化されます。
+This resets all projects, templates, and Claude / Google Calendar settings.
 
-### 2. 認証情報を削除する
+### 2. Delete saved credentials
 
-スタートメニューで **「資格情報マネージャー」** を開き、**「Windows 資格情報」** タブの中から `daily-report` で始まるエントリをすべて削除します。
+Open **Credential Manager** from the Start menu, go to the **Windows Credentials** tab, and delete all entries starting with `daily-report`.
 
-Git トークン・Slack トークン・Perforce パスワード・Redmine API キー・Google Calendar リフレッシュトークンなどが削除されます。
+This removes Git tokens, Slack tokens, Perforce passwords, Redmine API keys, and the Google Calendar refresh token.
 
-> 両方を削除するとアプリは初回起動時の状態に戻ります。
+> Deleting both returns the app to its initial state.

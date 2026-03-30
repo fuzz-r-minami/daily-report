@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useAppStore } from '../store/app.store'
 import { api } from '../lib/api'
-import type { SlackWorkspace } from '@shared/types/settings.types'
+import { LANGUAGES, setLanguage } from '../i18n'
+import type { SlackWorkspace, AppLanguage } from '@shared/types/settings.types'
 
 type StatusMsg = { ok: boolean; msg: string }
 
 export function Settings(): JSX.Element {
+  const { t } = useTranslation()
   const { settings, setSettings } = useAppStore()
 
   // Claude
@@ -70,7 +73,7 @@ export function Settings(): JSX.Element {
       const r = await api.settingsSave(newSettings)
       if (r.success) {
         setSettings(newSettings)
-        setClaudeStatus({ ok: true, msg: '保存しました' })
+        setClaudeStatus({ ok: true, msg: t('settings.saved') })
       } else {
         setClaudeStatus({ ok: false, msg: r.error })
       }
@@ -105,7 +108,7 @@ export function Settings(): JSX.Element {
       const r = await api.settingsSave(newSettings)
       if (r.success) {
         setSettings(newSettings)
-        setGcStatus({ ok: true, msg: '保存しました' })
+        setGcStatus({ ok: true, msg: t('settings.saved') })
       } else {
         setGcStatus({ ok: false, msg: r.error })
       }
@@ -137,7 +140,7 @@ export function Settings(): JSX.Element {
     try {
       const r = await api.slackStartAuth()
       if (r.success) {
-        setSlackStatus({ ok: true, msg: `${r.data.workspaceName} を連携しました` })
+        setSlackStatus({ ok: true, msg: t('settings.slackLinked', { name: r.data.workspaceName }) })
         const updated = await api.settingsGet()
         if (updated.success) setSettings(updated.data)
       } else {
@@ -159,7 +162,7 @@ export function Settings(): JSX.Element {
   }
 
   const handleSlackTest = async (workspace: SlackWorkspace): Promise<void> => {
-    setSlackTestResults((prev) => ({ ...prev, [workspace.workspaceId]: { ok: true, msg: 'テスト中...' } }))
+    setSlackTestResults((prev) => ({ ...prev, [workspace.workspaceId]: { ok: true, msg: '...' } }))
     const r = await api.slackTest(workspace.credentialKey)
     setSlackTestResults((prev) => ({
       ...prev,
@@ -167,15 +170,43 @@ export function Settings(): JSX.Element {
     }))
   }
 
+  const handleLanguageChange = async (lang: AppLanguage): Promise<void> => {
+    if (!settings) return
+    setLanguage(lang)
+    const newSettings = { ...settings, general: { ...settings.general, language: lang } }
+    await api.settingsSave(newSettings)
+    setSettings(newSettings)
+  }
+
   return (
     <div className="p-6 max-w-2xl mx-auto space-y-6">
-      <h2 className="text-xl font-bold">設定</h2>
+      <h2 className="text-xl font-bold">{t('settings.title')}</h2>
+
+      {/* Language */}
+      <section className="card space-y-3">
+        <h3 className="section-title">{t('settings.sectionLanguage')}</h3>
+        <div className="flex flex-wrap gap-2">
+          {LANGUAGES.map((lang) => (
+            <button
+              key={lang.code}
+              onClick={() => handleLanguageChange(lang.code)}
+              className={`px-4 py-2 rounded-md text-sm border transition-colors ${
+                (settings?.general.language ?? 'ja') === lang.code
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-background border-border hover:bg-accent'
+              }`}
+            >
+              {lang.nativeLabel}
+            </button>
+          ))}
+        </div>
+      </section>
 
       {/* Claude */}
       <section className="card space-y-4">
-        <h3 className="section-title">🤖 Claude 整形設定</h3>
+        <h3 className="section-title">{t('settings.sectionClaude')}</h3>
         <p className="text-xs text-muted-foreground">
-          インストール済みの <code className="bg-secondary px-1 rounded">claude</code> CLI を使って収集データを自動整形します。APIキー不要です。
+          {t('settings.claudeDesc')}
         </p>
 
         <label className="flex items-center gap-2 text-sm cursor-pointer">
@@ -185,15 +216,15 @@ export function Settings(): JSX.Element {
             onChange={(e) => setClaudeEnabled(e.target.checked)}
             className="rounded"
           />
-          Claude整形を有効にする
+          {t('settings.claudeEnable')}
         </label>
 
         <div className="flex items-center gap-2 flex-wrap">
           <button onClick={handleTestClaude} className="btn-secondary text-xs py-1.5">
-            接続テスト
+            {t('common.test')}
           </button>
           <button onClick={handleSaveClaude} disabled={claudeSaving} className="btn-primary text-xs py-1.5">
-            {claudeSaving ? '保存中...' : '保存'}
+            {claudeSaving ? t('common.saving') : t('common.save')}
           </button>
           {claudeStatus && (
             <span className={`text-xs ${claudeStatus.ok ? 'text-green-600' : 'text-destructive'}`}>
@@ -205,14 +236,14 @@ export function Settings(): JSX.Element {
 
       {/* Google Calendar */}
       <section className="card space-y-4">
-        <h3 className="section-title">📅 Google Calendar 連携</h3>
+        <h3 className="section-title">{t('settings.sectionCalendar')}</h3>
         <div className="text-xs text-muted-foreground space-y-0.5 p-2 bg-secondary/40 rounded">
-          <p>Google Cloud Console で以下の手順を完了してから Client ID / Client Secret を入力してください。</p>
+          <p>{t('settings.calendarSetupDesc')}</p>
           <ol className="list-decimal list-inside space-y-0.5 mt-1">
-            <li>プロジェクトを作成し、<span className="font-medium text-foreground">Google Calendar API</span> を有効化</li>
-            <li>「認証情報」から OAuth 2.0 クライアント ID を作成（アプリケーションの種類: <span className="font-medium text-foreground">デスクトップアプリ</span>）</li>
-            <li>発行された Client ID と Client Secret を下記に入力して保存</li>
-            <li>「Googleアカウントで認証」をクリックして連携を完了</li>
+            <li>{t('settings.calendarStep1')}</li>
+            <li>{t('settings.calendarStep2')}</li>
+            <li>{t('settings.calendarStep3')}</li>
+            <li>{t('settings.calendarStep4')}</li>
           </ol>
         </div>
         <div className="space-y-1">
@@ -238,13 +269,13 @@ export function Settings(): JSX.Element {
 
         <div className="flex items-center gap-2 flex-wrap">
           <button onClick={handleSaveGoogleCalendar} disabled={gcSaving} className="btn-primary text-xs py-1.5">
-            {gcSaving ? '保存中...' : '保存'}
+            {gcSaving ? t('common.saving') : t('common.save')}
           </button>
           <button onClick={handleGoogleCalendarAuth} disabled={gcAuthing} className="btn-secondary text-xs py-1.5">
-            {gcAuthing ? '認証中...' : 'Googleアカウントで認証'}
+            {gcAuthing ? t('settings.calendarAuthing') : t('settings.calendarAuth')}
           </button>
           <button onClick={handleTestGoogleCalendar} className="btn-secondary text-xs py-1.5">
-            接続テスト
+            {t('common.test')}
           </button>
           {gcStatus && (
             <span className={`text-xs ${gcStatus.ok ? 'text-green-600' : 'text-destructive'}`}>
@@ -256,10 +287,8 @@ export function Settings(): JSX.Element {
 
       {/* Slack */}
       <section className="card space-y-4">
-        <h3 className="section-title">💬 Slack 連携</h3>
-        <p className="text-xs text-muted-foreground">
-          ワークスペースごとに1回認証するだけで、そのワークスペース内の全チャンネルをプロジェクトで利用できます。
-        </p>
+        <h3 className="section-title">{t('settings.sectionSlack')}</h3>
+        <p className="text-xs text-muted-foreground">{t('settings.slackDesc')}</p>
 
         {slackWorkspaces.length > 0 && (
           <div className="space-y-2">
@@ -271,13 +300,13 @@ export function Settings(): JSX.Element {
                   onClick={() => handleSlackTest(ws)}
                   className="text-xs px-2 py-1 border border-border rounded hover:bg-accent"
                 >
-                  接続テスト
+                  {t('common.test')}
                 </button>
                 <button
                   onClick={() => handleSlackDeleteWorkspace(ws.workspaceId)}
                   className="text-xs px-2 py-1 text-destructive border border-destructive/40 rounded hover:bg-destructive/10"
                 >
-                  削除
+                  {t('common.delete')}
                 </button>
                 {slackTestResults[ws.workspaceId] && (
                   <span className={`text-xs ${slackTestResults[ws.workspaceId].ok ? 'text-green-600' : 'text-destructive'}`}>
@@ -295,7 +324,7 @@ export function Settings(): JSX.Element {
             disabled={slackAuthing}
             className="btn-primary text-xs py-1.5"
           >
-            {slackAuthing ? '認証中...' : '＋ ワークスペースを追加'}
+            {slackAuthing ? t('settings.slackAuthing') : t('settings.slackAddWorkspace')}
           </button>
           {slackStatus && (
             <span className={`text-xs ${slackStatus.ok ? 'text-green-600' : 'text-destructive'}`}>
@@ -307,39 +336,37 @@ export function Settings(): JSX.Element {
 
       {/* SVN */}
       <section className="card space-y-2">
-        <h3 className="section-title">🔀 SVN クライアント</h3>
+        <h3 className="section-title">{t('settings.sectionSvn')}</h3>
         {svnVersion !== null ? (
-          <p className="text-xs text-green-600">✓ SVN {svnVersion} が検出されました</p>
+          <p className="text-xs text-green-600">{t('settings.svnDetected', { version: svnVersion })}</p>
         ) : (
           <div className="text-xs text-amber-700 space-y-1">
-            <p>⚠ SVNクライアントが見つかりません</p>
-            <p className="text-muted-foreground">
-              SVN連携を使う場合は TortoiseSVN または SilkSVN をインストールしてください。
-            </p>
+            <p>{t('settings.svnNotFound')}</p>
+            <p className="text-muted-foreground">{t('settings.svnInstallDesc')}</p>
           </div>
         )}
       </section>
 
       {/* Data dir */}
       <section className="card space-y-2">
-        <h3 className="section-title">📂 データ保存先</h3>
+        <h3 className="section-title">{t('settings.sectionDataDir')}</h3>
         <p className="text-xs text-muted-foreground break-all">{dataDir}</p>
         <button onClick={handleOpenDataDir} className="btn-secondary text-xs py-1.5">
-          フォルダを開く
+          {t('settings.openFolder')}
         </button>
       </section>
 
       {/* Auto update */}
       <section className="card space-y-3">
-        <h3 className="section-title">🔄 アップデート</h3>
+        <h3 className="section-title">{t('settings.sectionUpdate')}</h3>
         <div className="text-xs text-muted-foreground">
-          {updateStatus.type === 'idle' && 'アップデートを確認できます'}
-          {updateStatus.type === 'checking' && '確認中...'}
-          {updateStatus.type === 'not-available' && '✓ 最新バージョンです'}
-          {updateStatus.type === 'available' && `新しいバージョン ${updateStatus.version} があります`}
-          {updateStatus.type === 'downloading' && `ダウンロード中... ${updateStatus.percent}%`}
-          {updateStatus.type === 'downloaded' && '✓ ダウンロード完了。再起動して適用できます'}
-          {updateStatus.type === 'error' && `エラー: ${updateStatus.message}`}
+          {updateStatus.type === 'idle' && t('settings.updateIdle')}
+          {updateStatus.type === 'checking' && t('settings.updateChecking')}
+          {updateStatus.type === 'not-available' && t('settings.updateLatest')}
+          {updateStatus.type === 'available' && t('settings.updateAvailable', { version: updateStatus.version })}
+          {updateStatus.type === 'downloading' && t('settings.updateDownloading', { percent: updateStatus.percent })}
+          {updateStatus.type === 'downloaded' && t('settings.updateDownloaded')}
+          {updateStatus.type === 'error' && t('settings.updateError', { message: updateStatus.message })}
         </div>
         <div className="flex gap-2">
           {(updateStatus.type === 'idle' || updateStatus.type === 'not-available' || updateStatus.type === 'error') && (
@@ -347,7 +374,7 @@ export function Settings(): JSX.Element {
               onClick={() => { setUpdateStatus({ type: 'checking' }); api.updateCheck() }}
               className="btn-secondary text-xs py-1.5"
             >
-              更新を確認
+              {t('settings.checkUpdate')}
             </button>
           )}
           {updateStatus.type === 'available' && (
@@ -355,7 +382,7 @@ export function Settings(): JSX.Element {
               onClick={() => { setUpdateStatus({ type: 'downloading', percent: 0 }); api.updateDownload() }}
               className="btn-primary text-xs py-1.5"
             >
-              ダウンロード
+              {t('settings.download')}
             </button>
           )}
           {updateStatus.type === 'downloaded' && (
@@ -363,7 +390,7 @@ export function Settings(): JSX.Element {
               onClick={() => api.updateInstall()}
               className="btn-primary text-xs py-1.5"
             >
-              再起動して適用
+              {t('settings.restartApply')}
             </button>
           )}
         </div>

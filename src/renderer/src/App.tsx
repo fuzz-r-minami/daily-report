@@ -7,13 +7,17 @@ import { ProjectEdit } from './pages/ProjectEdit'
 import { Templates } from './pages/Templates'
 import { Settings } from './pages/Settings'
 import { ReportPreview } from './pages/ReportPreview'
+import { LanguageSelectModal } from './components/LanguageSelectModal'
 import { useAppStore } from './store/app.store'
 import { api } from './lib/api'
+import { setLanguage } from './i18n'
+import type { AppLanguage } from '@shared/types/settings.types'
 
 function AppRoutes(): JSX.Element {
   const navigate = useNavigate()
   const { settings, setSettings, setProjects, setTemplates, addProgress, addLog } = useAppStore()
   const [initializing, setInitializing] = useState(true)
+  const [showLangSelect, setShowLangSelect] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -21,11 +25,18 @@ function AppRoutes(): JSX.Element {
       api.projectList(),
       api.templateList()
     ]).then(([s, p, t]) => {
-      if (s.success) setSettings(s.data)
+      if (s.success) {
+        setSettings(s.data)
+        if (s.data.general.language) {
+          setLanguage(s.data.general.language)
+        } else {
+          // 初回起動：言語未設定
+          setShowLangSelect(true)
+        }
+      }
       if (p.success) setProjects(p.data)
       if (t.success) setTemplates(t.data)
 
-      // First-run: if no projects, navigate to Projects page with a hint
       if (p.success && p.data.length === 0) {
         navigate('/projects', { replace: true })
       }
@@ -38,25 +49,36 @@ function AppRoutes(): JSX.Element {
     return () => { unsubProgress(); unsubLog() }
   }, [])
 
+  const handleLanguageSelect = async (lang: AppLanguage): Promise<void> => {
+    setShowLangSelect(false)
+    if (!settings) return
+    const newSettings = { ...settings, general: { ...settings.general, language: lang } }
+    await api.settingsSave(newSettings)
+    setSettings(newSettings)
+  }
+
   if (initializing) {
     return (
       <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
-        読み込み中...
+        Loading...
       </div>
     )
   }
 
   return (
-    <Routes>
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
-      <Route path="/dashboard" element={<Dashboard />} />
-      <Route path="/projects" element={<Projects />} />
-      <Route path="/projects/new" element={<ProjectEdit />} />
-      <Route path="/projects/:id" element={<ProjectEdit />} />
-      <Route path="/templates" element={<Templates />} />
-      <Route path="/settings" element={<Settings />} />
-      <Route path="/report-preview" element={<ReportPreview />} />
-    </Routes>
+    <>
+      {showLangSelect && <LanguageSelectModal onSelect={handleLanguageSelect} />}
+      <Routes>
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/projects" element={<Projects />} />
+        <Route path="/projects/new" element={<ProjectEdit />} />
+        <Route path="/projects/:id" element={<ProjectEdit />} />
+        <Route path="/templates" element={<Templates />} />
+        <Route path="/settings" element={<Settings />} />
+        <Route path="/report-preview" element={<ReportPreview />} />
+      </Routes>
+    </>
   )
 }
 

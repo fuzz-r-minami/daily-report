@@ -1,14 +1,16 @@
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAppStore } from '../store/app.store'
 import { api } from '../lib/api'
 import { PROJECT_COLORS } from '@shared/constants'
 
 export function Projects(): JSX.Element {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { projects, removeProject } = useAppStore()
 
   const handleDelete = async (id: string, name: string): Promise<void> => {
-    if (!confirm(`プロジェクト「${name}」を削除しますか？`)) return
+    if (!confirm(t('projects.confirmDelete', { name }))) return
     const result = await api.projectDelete(id)
     if (result.success) {
       removeProject(id)
@@ -18,12 +20,12 @@ export function Projects(): JSX.Element {
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold">プロジェクト管理</h2>
+        <h2 className="text-xl font-bold">{t('projects.title')}</h2>
         <button
           onClick={() => navigate('/projects/new')}
           className="btn-primary"
         >
-          + 新規追加
+          {t('common.add')}
         </button>
       </div>
 
@@ -31,30 +33,28 @@ export function Projects(): JSX.Element {
         <div className="card text-center py-12 space-y-4">
           <div className="text-5xl">📁</div>
           <div>
-            <p className="font-semibold text-foreground">ようこそ！まずプロジェクトを追加しましょう</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              日報・週報を生成したいプロジェクトを追加してください。
-            </p>
+            <p className="font-semibold text-foreground">{t('projects.welcomeTitle')}</p>
+            <p className="text-sm text-muted-foreground mt-1">{t('projects.welcomeDesc')}</p>
           </div>
           <div className="grid grid-cols-2 gap-3 max-w-sm mx-auto text-left text-xs text-muted-foreground">
             <div className="flex items-start gap-2">
-              <span>📦</span><span>Gitリポジトリのコミットログを取得</span>
+              <span>📦</span><span>{t('projects.featureGit')}</span>
             </div>
             <div className="flex items-start gap-2">
-              <span>🔀</span><span>SVNコミットログを取得</span>
+              <span>🔀</span><span>{t('projects.featureSvn')}</span>
             </div>
             <div className="flex items-start gap-2">
-              <span>💬</span><span>Slackの投稿を取得</span>
+              <span>💬</span><span>{t('projects.featureSlack')}</span>
             </div>
             <div className="flex items-start gap-2">
-              <span>📂</span><span>変更ファイルの一覧を取得</span>
+              <span>📂</span><span>{t('projects.featureFiles')}</span>
             </div>
           </div>
           <button
             onClick={() => navigate('/projects/new')}
             className="btn-primary mx-auto"
           >
-            最初のプロジェクトを追加
+            {t('projects.addFirst')}
           </button>
         </div>
       ) : (
@@ -67,7 +67,7 @@ export function Projects(): JSX.Element {
               (p.redmineConfigs?.some((c) => c.enabled)) && 'Redmine',
               p.slack?.enabled && 'Slack',
               p.googleCalendar?.enabled && 'Google Calendar',
-              (p.filePaths?.length ?? 0) > 0 && `ファイル監視 ${p.filePaths!.length}件`
+              (p.filePaths?.length ?? 0) > 0 && t('projects.filesLabel', { count: p.filePaths!.length })
             ].filter(Boolean) as string[]
 
             return (
@@ -82,7 +82,7 @@ export function Projects(): JSX.Element {
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm">{p.name}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {integrations.length > 0 ? integrations.join(' / ') : '連携なし'}
+                    {integrations.length > 0 ? integrations.join(' / ') : t('common.noIntegration')}
                   </p>
                 </div>
                 <div className="flex gap-2">
@@ -90,13 +90,13 @@ export function Projects(): JSX.Element {
                     onClick={() => navigate(`/projects/${p.id}`)}
                     className="px-3 py-1 text-xs rounded border border-border hover:bg-accent"
                   >
-                    編集
+                    {t('common.edit')}
                   </button>
                   <button
                     onClick={() => handleDelete(p.id, p.name)}
                     className="px-3 py-1 text-xs rounded border border-destructive text-destructive hover:bg-destructive/10"
                   >
-                    削除
+                    {t('common.delete')}
                   </button>
                 </div>
               </div>

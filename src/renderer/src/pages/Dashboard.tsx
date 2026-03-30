@@ -1,29 +1,27 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAppStore } from '../store/app.store'
 import { api } from '../lib/api'
 import { todayIso, addDays } from '../lib/utils'
 import { PROJECT_COLORS } from '@shared/constants'
 import type { AllocationResult } from '@shared/types/report.types'
 
-const STEP_LABELS: Record<string, string> = {
-  git: 'Git',
-  svn: 'SVN',
-  perforce: 'Perforce',
-  slack: 'Slack',
-  files: 'ファイル',
-  calendar: 'Calendar'
-}
-
 type Mode = 'daily' | 'weekly' | 'monthly' | 'allocation'
 
 export function Dashboard(): JSX.Element {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const {
     projects, templates, currentSession, setCurrentSession,
     clearProgress, clearLogs, progressLog, logs, settings,
     isGenerating, isAllocating, setIsGenerating, setIsAllocating
   } = useAppStore()
+
+  const stepLabels: Record<string, string> = {
+    git: 'Git', svn: 'SVN', perforce: 'Perforce', redmine: 'Redmine',
+    slack: 'Slack', files: t('dashboard.stepFile'), calendar: 'Calendar'
+  }
 
   const mounted = useRef(true)
   useEffect(() => {
@@ -60,8 +58,8 @@ export function Dashboard(): JSX.Element {
   }, [mode, selectedDate, selectedMonth])
 
   const reportType = mode === 'allocation' ? 'daily' : mode
-  const filteredTemplates = templates.filter((t) => t.type === reportType)
-  const defaultTemplateId = filteredTemplates.find((t) => t.isDefault)?.id
+  const filteredTemplates = templates.filter((tmpl) => tmpl.type === reportType)
+  const defaultTemplateId = filteredTemplates.find((tmpl) => tmpl.isDefault)?.id
   const effectiveTemplateId = selectedTemplateId || defaultTemplateId || filteredTemplates[0]?.id || ''
 
   const toggleProject = (id: string): void => {
@@ -76,11 +74,11 @@ export function Dashboard(): JSX.Element {
 
   const handleGenerate = async (): Promise<void> => {
     if (selectedProjectIds.length === 0) {
-      setError('プロジェクトを1つ以上選択してください')
+      setError(t('dashboard.errorSelectProject'))
       return
     }
     if (!effectiveTemplateId) {
-      setError('テンプレートが設定されていません。テンプレートページで追加してください。')
+      setError(t('dashboard.errorNoTemplate'))
       return
     }
 
@@ -111,7 +109,7 @@ export function Dashboard(): JSX.Element {
 
   const handleAllocation = async (): Promise<void> => {
     if (selectedProjectIds.length === 0) {
-      setError('プロジェクトを1つ以上選択してください')
+      setError(t('dashboard.errorSelectProject'))
       return
     }
 
@@ -141,16 +139,14 @@ export function Dashboard(): JSX.Element {
         <div className="text-center space-y-4 max-w-sm">
           <div className="text-5xl">📋</div>
           <div>
-            <p className="font-semibold">まずプロジェクトを設定しましょう</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              日報・週報を生成するには、プロジェクトと連携ツールの設定が必要です。
-            </p>
+            <p className="font-semibold">{t('dashboard.noProjects')}</p>
+            <p className="text-sm text-muted-foreground mt-1">{t('dashboard.noProjectsDesc')}</p>
           </div>
           <button
             onClick={() => navigate('/projects/new')}
             className="btn-primary"
           >
-            プロジェクトを追加
+            {t('dashboard.addProject')}
           </button>
         </div>
       </div>
@@ -162,11 +158,11 @@ export function Dashboard(): JSX.Element {
 
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-5">
-      <h2 className="text-xl font-bold">レポート生成</h2>
+      <h2 className="text-xl font-bold">{t('dashboard.title')}</h2>
 
       {/* Mode */}
       <section className="card space-y-3">
-        <h3 className="section-title">種別と期間</h3>
+        <h3 className="section-title">{t('dashboard.sectionPeriod')}</h3>
         <div className="flex gap-2">
           {(['daily', 'weekly', 'monthly', 'allocation'] as const).map((m) => (
             <button
@@ -183,14 +179,14 @@ export function Dashboard(): JSX.Element {
                   : 'bg-background border-border hover:bg-accent'
               }`}
             >
-              {m === 'daily' ? '📅 日報' : m === 'weekly' ? '📆 週報' : m === 'monthly' ? '🗓 月報' : '📊 按分計算'}
+              {t('dashboard.' + m)}
             </button>
           ))}
         </div>
 
         {mode === 'allocation' || mode === 'monthly' ? (
           <div className="space-y-1">
-            <label className="field-label">対象月</label>
+            <label className="field-label">{t('dashboard.labelMonth')}</label>
             <input
               type="month"
               value={selectedMonth}
@@ -204,7 +200,7 @@ export function Dashboard(): JSX.Element {
         ) : (
           <div className="flex items-center gap-3">
             <div className="space-y-1">
-              <label className="field-label">日付</label>
+              <label className="field-label">{t('dashboard.labelDate')}</label>
               <input
                 type="date"
                 value={selectedDate}
@@ -214,22 +210,22 @@ export function Dashboard(): JSX.Element {
             </div>
             {mode === 'weekly' && (
               <div className="text-xs text-muted-foreground mt-4">
-                期間: {periodStart} 〜 {periodEnd}
+                {t('dashboard.weekPeriod', { start: periodStart, end: periodEnd })}
               </div>
             )}
           </div>
         )}
       </section>
 
-      {/* Template（按分モード時は非表示） */}
+      {/* Template */}
       {mode !== 'allocation' && (
         <section className="card space-y-2">
-          <h3 className="section-title">テンプレート</h3>
+          <h3 className="section-title">{t('dashboard.sectionTemplate')}</h3>
           {filteredTemplates.length === 0 ? (
             <p className="text-xs text-muted-foreground">
-              対象のテンプレートがありません。
+              {t('dashboard.noTemplate')}
               <button onClick={() => navigate('/templates')} className="text-primary hover:underline ml-1">
-                テンプレートを追加
+                {t('dashboard.addTemplate')}
               </button>
             </p>
           ) : (
@@ -238,9 +234,9 @@ export function Dashboard(): JSX.Element {
               onChange={(e) => setSelectedTemplateId(e.target.value)}
               className="input-field"
             >
-              {filteredTemplates.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
+              {filteredTemplates.map((tmpl) => (
+                <option key={tmpl.id} value={tmpl.id}>
+                  {tmpl.name}
                 </option>
               ))}
             </select>
@@ -251,9 +247,9 @@ export function Dashboard(): JSX.Element {
       {/* Projects */}
       <section className="card space-y-2">
         <div className="flex items-center justify-between">
-          <h3 className="section-title">プロジェクト選択</h3>
+          <h3 className="section-title">{t('dashboard.sectionProjects')}</h3>
           <button onClick={selectAll} className="text-xs text-primary hover:underline">
-            すべて選択
+            {t('dashboard.selectAll')}
           </button>
         </div>
         <div className="space-y-1.5">
@@ -302,7 +298,7 @@ export function Dashboard(): JSX.Element {
       {/* Progress */}
       {progressLog.length > 0 && (
         <section className="card space-y-2">
-          <h3 className="section-title">収集状況</h3>
+          <h3 className="section-title">{t('dashboard.sectionProgress')}</h3>
           <div className="bg-secondary/50 rounded-md p-3 space-y-1 text-xs font-mono max-h-48 overflow-y-auto">
             {progressLog.map((p, i) => {
               const icon =
@@ -317,7 +313,7 @@ export function Dashboard(): JSX.Element {
               return (
                 <div key={i} className={`flex items-center gap-2 ${color}`}>
                   <span className="w-3">{icon}</span>
-                  <span>[{p.projectName}] {STEP_LABELS[p.step] || p.step}</span>
+                  <span>[{p.projectName}] {stepLabels[p.step] || p.step}</span>
                   {p.message && <span className="text-muted-foreground">— {p.message}</span>}
                 </div>
               )
@@ -329,7 +325,7 @@ export function Dashboard(): JSX.Element {
       {/* Detail log */}
       {logs.length > 0 && (
         <section className="card space-y-2">
-          <h3 className="section-title">実行ログ</h3>
+          <h3 className="section-title">{t('dashboard.sectionLog')}</h3>
           <textarea
             readOnly
             value={logs.join('\n')}
@@ -339,23 +335,24 @@ export function Dashboard(): JSX.Element {
         </section>
       )}
 
-      {/* 按分計算結果 */}
+      {/* Allocation result */}
       {allocationResults && (
         <section className="card space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="section-title">
-              按分結果 — {selectedMonth.replace('-', '年')}月
+              {t('dashboard.allocationResult', { month: `${selectedMonth.replace('-', '年')}月` })}
             </h3>
             {!allocationResults.every((r) => r.days === 0) && (
               <button
                 onClick={() => {
                   const [y, m] = selectedMonth.split('-')
+                  const total = allocationResults.reduce((s, r) => s + r.days, 0).toFixed(1)
                   const lines = [
-                    `作業按分 ${y}年${m}月`,
+                    `${t('dashboard.allocationCopyTitle')} ${y}年${m}月`,
                     '',
-                    ...allocationResults.map((r) => `・${r.projectName}: ${r.days.toFixed(1)} 人日`),
+                    ...allocationResults.map((r) => `・${r.projectName}: ${r.days.toFixed(1)} ${t('dashboard.allocationUnit')}`),
                     '',
-                    `合計: ${allocationResults.reduce((s, r) => s + r.days, 0).toFixed(1)} 人日`
+                    t('dashboard.allocationTotal', { total })
                   ]
                   navigator.clipboard.writeText(lines.join('\n'))
                   setCopied(true)
@@ -363,12 +360,12 @@ export function Dashboard(): JSX.Element {
                 }}
                 className="text-xs text-primary hover:underline"
               >
-                {copied ? '✓ コピー済み' : 'コピー'}
+                {copied ? t('common.copied') : t('common.copy')}
               </button>
             )}
           </div>
           {allocationResults.every((r) => r.days === 0) ? (
-            <p className="text-xs text-muted-foreground">対象期間に活動が見つかりませんでした。</p>
+            <p className="text-xs text-muted-foreground">{t('dashboard.allocationEmpty')}</p>
           ) : (
             <>
               <div className="space-y-1">
@@ -380,13 +377,13 @@ export function Dashboard(): JSX.Element {
                     />
                     <span className="flex-1">{r.projectName}</span>
                     <span className="font-mono font-medium tabular-nums">
-                      {r.days.toFixed(1)} 人日
+                      {r.days.toFixed(1)} {t('dashboard.allocationUnit')}
                     </span>
                   </div>
                 ))}
               </div>
               <div className="pt-2 border-t border-border text-xs text-muted-foreground font-mono">
-                合計: {allocationResults.reduce((s, r) => s + r.days, 0).toFixed(1)} 人日
+                {t('dashboard.allocationTotal', { total: allocationResults.reduce((s, r) => s + r.days, 0).toFixed(1) })}
               </div>
             </>
           )}
@@ -395,12 +392,12 @@ export function Dashboard(): JSX.Element {
 
       {currentSession && !isGenerating && (
         <div className="flex items-center justify-between px-4 py-3 rounded-md border border-green-500/50 bg-green-50 dark:bg-green-950/30">
-          <span className="text-sm text-green-700 dark:text-green-400">レポートの収集が完了しています</span>
+          <span className="text-sm text-green-700 dark:text-green-400">{t('dashboard.sessionReady')}</span>
           <button
             onClick={() => navigate('/report-preview')}
             className="text-xs px-3 py-1.5 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
           >
-            レポートを表示 →
+            {t('dashboard.showReport')}
           </button>
         </div>
       )}
@@ -411,44 +408,43 @@ export function Dashboard(): JSX.Element {
 
       <div className="space-y-2">
         <div className="flex gap-3">
-        {mode === 'allocation' ? (
-          <button
-            onClick={handleAllocation}
-            disabled={isAllocating || selectedProjectIds.length === 0}
-            className="flex-1 py-3 bg-primary text-primary-foreground rounded-md font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
-          >
-            {isAllocating
-              ? '計算中...'
-              : `📊 按分計算（${selectedProjectIds.length}件）`}
-          </button>
-        ) : (
-          <button
-            onClick={handleGenerate}
-            disabled={isGenerating || selectedProjectIds.length === 0}
-            className="flex-1 py-3 bg-primary text-primary-foreground rounded-md font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
-          >
-            {isGenerating
-              ? '収集中...'
-              : mode === 'daily'
-                ? `📅 日報を生成（${selectedProjectIds.length}件）`
-                : mode === 'weekly'
-                  ? `📆 週報を生成（${selectedProjectIds.length}件）`
-                  : `🗓 月報を生成（${selectedProjectIds.length}件）`}
-          </button>
-        )}
-        {(isGenerating || isAllocating) && (
-          <button
-            onClick={() => { setIsGenerating(false); setIsAllocating(false) }}
-            className="px-4 py-3 border border-border rounded-md text-sm hover:bg-accent transition-colors"
-          >
-            キャンセル
-          </button>
-        )}
+          {mode === 'allocation' ? (
+            <button
+              onClick={handleAllocation}
+              disabled={isAllocating || selectedProjectIds.length === 0}
+              className="flex-1 py-3 bg-primary text-primary-foreground rounded-md font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
+            >
+              {isAllocating
+                ? t('dashboard.btnCalculating')
+                : t('dashboard.btnAllocation', { count: selectedProjectIds.length })}
+            </button>
+          ) : (
+            <button
+              onClick={handleGenerate}
+              disabled={isGenerating || selectedProjectIds.length === 0}
+              className="flex-1 py-3 bg-primary text-primary-foreground rounded-md font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
+            >
+              {isGenerating
+                ? t('dashboard.btnGenerating')
+                : t('dashboard.btnGenerate', {
+                    icon: mode === 'daily' ? '📅' : mode === 'weekly' ? '📆' : '🗓',
+                    type: t('dashboard.' + mode).split(' ').slice(1).join(' '),
+                    count: selectedProjectIds.length
+                  })}
+            </button>
+          )}
+          {(isGenerating || isAllocating) && (
+            <button
+              onClick={() => { setIsGenerating(false); setIsAllocating(false) }}
+              className="px-4 py-3 border border-border rounded-md text-sm hover:bg-accent transition-colors"
+            >
+              {t('dashboard.btnCancelLabel')}
+            </button>
+          )}
         </div>
         {mode === 'allocation' && (
           <p className="text-xs text-muted-foreground leading-relaxed">
-            Git / SVN / Perforce / Slack / Calendar に活動があった日を稼働日とし、
-            複数プロジェクトで同じ日に活動があった場合は 1/N 日として按分します。
+            {t('dashboard.allocationDesc')}
           </p>
         )}
       </div>

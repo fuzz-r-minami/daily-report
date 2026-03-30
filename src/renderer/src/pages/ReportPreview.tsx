@@ -2,6 +2,7 @@ import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAppStore } from '../store/app.store'
 import { api } from '../lib/api'
 import { DEFAULT_EMAIL_SUBJECT_DAILY } from '../../../shared/constants'
@@ -35,10 +36,11 @@ function buildSubject(
 }
 
 export function ReportPreview(): JSX.Element {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { currentSession, setCurrentSession, settings, templates } = useAppStore()
 
-  const template = templates.find((t) => t.id === currentSession?.templateId)
+  const template = templates.find((tmpl) => tmpl.id === currentSession?.templateId)
 
   const [text, setText] = useState(currentSession?.formattedText || currentSession?.rawText || '')
   const [subject, setSubject] = useState(() => buildSubject(template, currentSession ?? null))
@@ -50,9 +52,9 @@ export function ReportPreview(): JSX.Element {
     return (
       <div className="p-6 text-center text-muted-foreground flex flex-col items-center justify-center h-full gap-3">
         <p className="text-4xl">📄</p>
-        <p>レポートが生成されていません</p>
+        <p>{t('reportPreview.noSession')}</p>
         <button onClick={() => navigate('/dashboard')} className="btn-primary text-sm">
-          ダッシュボードへ戻る
+          {t('reportPreview.backToDashboard')}
         </button>
       </div>
     )
@@ -60,7 +62,7 @@ export function ReportPreview(): JSX.Element {
 
   const handleFormat = async (): Promise<void> => {
     if (!settings?.claude.enabled) {
-      setStatus({ ok: false, msg: 'Claude連携が無効です。設定ページで有効化してください。' })
+      setStatus({ ok: false, msg: t('reportPreview.formatDisabled') })
       return
     }
     setIsFormatting(true)
@@ -70,7 +72,7 @@ export function ReportPreview(): JSX.Element {
       if (r.success) {
         setText(r.data)
         setCurrentSession({ ...currentSession, formattedText: r.data, status: 'ready' })
-        setStatus({ ok: true, msg: 'Claude整形が完了しました' })
+        setStatus({ ok: true, msg: t('reportPreview.btnFormat') })
       } else {
         setStatus({ ok: false, msg: r.error })
       }
@@ -81,7 +83,7 @@ export function ReportPreview(): JSX.Element {
 
   const handleCopy = async (): Promise<void> => {
     await navigator.clipboard.writeText(text)
-    setStatus({ ok: true, msg: 'クリップボードにコピーしました' })
+    setStatus({ ok: true, msg: t('reportPreview.copiedMsg') })
     setTimeout(() => setStatus(null), 3000)
   }
 
@@ -90,7 +92,7 @@ export function ReportPreview(): JSX.Element {
     const filename = `${currentSession.type === 'daily' ? '日報' : '週報'}_${dateStr}.md`
     const r = await api.reportSave(text, filename)
     if (r.success) {
-      setStatus({ ok: true, msg: `保存しました: ${r.data}` })
+      setStatus({ ok: true, msg: `${t('reportPreview.btnSave')}: ${r.data}` })
     } else if (r.error !== 'cancelled') {
       setStatus({ ok: false, msg: r.error })
     }
@@ -99,7 +101,7 @@ export function ReportPreview(): JSX.Element {
   const handleMail = async (): Promise<void> => {
     const toList = (template?.emailTo || []).filter(Boolean)
     if (toList.length === 0) {
-      setStatus({ ok: false, msg: 'テンプレートにメールの宛先を設定してください' })
+      setStatus({ ok: false, msg: t('reportPreview.noMailTo') })
       return
     }
     const r = await api.mailOpen(toList, subject, stripMarkdown(text))
@@ -116,12 +118,12 @@ export function ReportPreview(): JSX.Element {
         ? { label: 'Git', count: d.git.commits.length, error: d.git.error }
         : { label: 'Git', unconfigured: true },
       ...(d.git && !d.git.error && ((d.git.uncommittedFiles?.length ?? 0) + (d.git.untrackedFiles?.length ?? 0)) > 0
-        ? [{ label: 'Git作業中', count: (d.git.uncommittedFiles?.length ?? 0) + (d.git.untrackedFiles?.length ?? 0), sub: true }] : []),
+        ? [{ label: t('reportPreview.wipGit'), count: (d.git.uncommittedFiles?.length ?? 0) + (d.git.untrackedFiles?.length ?? 0), sub: true }] : []),
       d.svn
         ? { label: 'SVN', count: d.svn.commits.length, error: d.svn.error }
         : { label: 'SVN', unconfigured: true },
       ...(d.svn && !d.svn.error && ((d.svn.uncommittedFiles?.length ?? 0) + (d.svn.untrackedFiles?.length ?? 0)) > 0
-        ? [{ label: 'SVN作業中', count: (d.svn.uncommittedFiles?.length ?? 0) + (d.svn.untrackedFiles?.length ?? 0), sub: true }] : []),
+        ? [{ label: t('reportPreview.wipSvn'), count: (d.svn.uncommittedFiles?.length ?? 0) + (d.svn.untrackedFiles?.length ?? 0), sub: true }] : []),
       d.perforce
         ? { label: 'Perforce', count: d.perforce.changelists.length, error: d.perforce.error }
         : { label: 'Perforce', unconfigured: true },
@@ -135,7 +137,12 @@ export function ReportPreview(): JSX.Element {
     return { name: d.projectName, items }
   })
 
-  const typeLabel = currentSession.type === 'daily' ? '日報' : currentSession.type === 'weekly' ? '週報' : '月報'
+  const typeLabel = currentSession.type === 'daily'
+    ? t('reportPreview.typeDaily')
+    : currentSession.type === 'weekly'
+      ? t('reportPreview.typeWeekly')
+      : t('reportPreview.typeMonthly')
+
   const dateLabel = currentSession.type === 'daily'
     ? currentSession.dateRange.start.substring(0, 10)
     : currentSession.type === 'monthly'
@@ -150,11 +157,11 @@ export function ReportPreview(): JSX.Element {
           onClick={() => { setCurrentSession(null); navigate('/dashboard') }}
           className="btn-secondary text-sm"
         >
-          ← 戻る
+          {t('common.back')}
         </button>
         <div className="flex-1 min-w-0">
           <h2 className="text-base font-bold">
-            {typeLabel} プレビュー
+            {t('reportPreview.title', { type: typeLabel })}
             <span className="ml-2 text-sm font-normal text-muted-foreground">{dateLabel}</span>
           </h2>
         </div>
@@ -163,35 +170,35 @@ export function ReportPreview(): JSX.Element {
             onClick={handleFormat}
             disabled={isFormatting}
             className="btn-primary text-xs py-1.5"
-            title="収集データをClaudeで整形します"
+            title={t('reportPreview.btnFormat')}
           >
-            {isFormatting ? '整形中...' : '🤖 Claudeで整形'}
+            {isFormatting ? t('reportPreview.btnFormatting') : t('reportPreview.btnFormat')}
           </button>
           <button onClick={handleCopy} className="btn-secondary text-xs py-1.5">
-            📋 コピー
+            {t('reportPreview.btnCopy')}
           </button>
           <button onClick={handleSave} className="btn-secondary text-xs py-1.5">
-            💾 保存
+            {t('reportPreview.btnSave')}
           </button>
           <button
             onClick={() => setViewMode((m) => m === 'edit' ? 'view' : 'edit')}
             className="btn-secondary text-xs py-1.5"
           >
-            {viewMode === 'edit' ? '👁 プレビュー' : '✏️ 編集'}
+            {viewMode === 'edit' ? t('reportPreview.btnPreview') : t('reportPreview.btnEdit')}
           </button>
           <button
             onClick={handleMail}
             className="text-xs py-1.5 px-3 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
-            title={(template?.emailTo || []).filter(Boolean).join('\n') || '送信先未設定'}
+            title={(template?.emailTo || []).filter(Boolean).join('\n') || t('reportPreview.noMailTo')}
           >
-            📧 mailto:
+            {t('reportPreview.btnMail')}
           </button>
         </div>
       </div>
 
       {/* Subject bar */}
       <div className="px-4 py-2 border-b border-border bg-card shrink-0 flex items-center gap-2">
-        <span className="text-xs text-muted-foreground shrink-0">件名</span>
+        <span className="text-xs text-muted-foreground shrink-0">{t('reportPreview.labelSubject')}</span>
         <input
           type="text"
           value={subject}
@@ -214,20 +221,26 @@ export function ReportPreview(): JSX.Element {
       <div className="flex flex-1 overflow-hidden">
         {/* Left: summary pane */}
         <div className="w-44 shrink-0 border-r border-border p-3 overflow-y-auto bg-secondary/20">
-          <p className="field-label mb-2">収集データ</p>
+          <p className="field-label mb-2">{t('reportPreview.summaryTitle')}</p>
           {summary.map((s, i) => (
             <div key={i} className="mb-3">
               <p className="text-xs font-semibold truncate text-foreground" title={s.name}>{s.name}</p>
               {s.items.map((item, j) => (
                 <p key={j} className={`text-xs ${item.sub ? 'pl-2 text-amber-600' : item.error ? 'text-destructive' : item.unconfigured ? 'text-muted-foreground/50' : 'text-muted-foreground'}`}>
-                  {item.error ? `✗ ${item.label}` : item.unconfigured ? `${item.label} - 未連携` : item.sub ? `⚠ ${item.label}: ${item.count}件` : `${item.label}: ${item.count}件`}
+                  {item.error
+                    ? t('reportPreview.summaryError', { label: item.label })
+                    : item.unconfigured
+                      ? `${item.label} - ${t('reportPreview.summaryUnconfigured')}`
+                      : item.sub
+                        ? t('reportPreview.summaryWip', { label: item.label, count: item.count })
+                        : `${item.label}: ${t('reportPreview.summaryCount', { count: item.count })}`}
                 </p>
               ))}
             </div>
           ))}
           <div className="pt-2 border-t border-border mt-2">
-            <p className="field-label">テンプレート</p>
-            <p className="text-xs text-muted-foreground mt-0.5">{template?.name || '不明'}</p>
+            <p className="field-label">{t('reportPreview.labelTemplate')}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{template?.name || t('reportPreview.templateUnknown')}</p>
           </div>
         </div>
 
@@ -238,7 +251,7 @@ export function ReportPreview(): JSX.Element {
             onChange={(e) => setText(e.target.value)}
             className="flex-1 p-4 font-mono text-sm resize-none focus:outline-none bg-background"
             style={{ userSelect: 'text' }}
-            placeholder="ここにレポートが表示されます..."
+            placeholder={t('reportPreview.placeholder')}
             spellCheck={false}
           />
         ) : (

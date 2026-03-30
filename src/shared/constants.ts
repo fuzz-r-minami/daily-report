@@ -1,5 +1,5 @@
-export const APP_NAME = '日報ジェネレーター'
-export const APP_VERSION = '1.0.2'
+export const APP_NAME = 'drepo'
+export const APP_VERSION = '1.0.3'
 
 export const SLACK_CLIENT_ID = '379997451684.10778849087878'
 

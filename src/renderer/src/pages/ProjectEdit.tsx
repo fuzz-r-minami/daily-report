@@ -1,5 +1,6 @@
 import { useState, useEffect, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAppStore } from '../store/app.store'
 import { api } from '../lib/api'
 import { PROJECT_COLORS } from '@shared/constants'
@@ -40,6 +41,7 @@ const EMPTY_GOOGLE_CALENDAR: GoogleCalendarProjectConfig = {
 }
 
 export function ProjectEdit(): JSX.Element {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { projects, addProject, updateProject, settings } = useAppStore()
@@ -65,9 +67,7 @@ export function ProjectEdit(): JSX.Element {
   const [filePaths, setFilePaths] = useState<FilePathConfig[]>(existing?.filePaths || [])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  // Credentials keyed by repo id
   const [gitTokens, setGitTokens] = useState<Record<string, string>>({})
-  // Test results keyed by repo id or 'slack'
   const [testResults, setTestResults] = useState<Record<string, { msg: string; ok: boolean }>>({})
 
   useEffect(() => {
@@ -139,7 +139,7 @@ export function ProjectEdit(): JSX.Element {
   }
 
   const handleSave = async (): Promise<void> => {
-    if (!name.trim()) { setError('プロジェクト名を入力してください'); return }
+    if (!name.trim()) { setError(t('projectEdit.errorName')); return }
     setSaving(true); setError(null)
     try {
       const data = {
@@ -184,7 +184,7 @@ export function ProjectEdit(): JSX.Element {
   const handleTestRedmine = async (cfg: RedmineProjectConfig): Promise<void> => {
     const apiKey = redmineApiKeys[cfg.id] || ''
     if (!apiKey) {
-      setTestResults((prev) => ({ ...prev, [cfg.id]: { msg: 'APIアクセスキーを入力してください', ok: false } }))
+      setTestResults((prev) => ({ ...prev, [cfg.id]: { msg: t('projectEdit.apiKeyRequired'), ok: false } }))
       return
     }
     const tempApiKeyKey = `redmine-test-apikey-${cfg.id}`
@@ -224,32 +224,32 @@ export function ProjectEdit(): JSX.Element {
   }
 
   const tabs: { id: Tab; label: string }[] = [
-    { id: 'git', label: 'Git' },
-    { id: 'svn', label: 'SVN' },
-    { id: 'perforce', label: 'Perforce' },
-    { id: 'redmine', label: 'Redmine' },
-    { id: 'slack', label: 'Slack' },
-    { id: 'calendar', label: 'Google Calendar' },
-    { id: 'files', label: 'ファイル監視' }
+    { id: 'git', label: t('projectEdit.tabGit') },
+    { id: 'svn', label: t('projectEdit.tabSvn') },
+    { id: 'perforce', label: t('projectEdit.tabPerforce') },
+    { id: 'redmine', label: t('projectEdit.tabRedmine') },
+    { id: 'slack', label: t('projectEdit.tabSlack') },
+    { id: 'calendar', label: t('projectEdit.tabCalendar') },
+    { id: 'files', label: t('projectEdit.tabFiles') }
   ]
 
   return (
     <div className="p-6 max-w-2xl mx-auto space-y-5">
-      <h2 className="text-xl font-bold">{isNew ? 'プロジェクト追加' : 'プロジェクト編集'}</h2>
+      <h2 className="text-xl font-bold">{isNew ? t('projectEdit.titleNew') : t('projectEdit.titleEdit')}</h2>
 
       {/* Name + Color */}
       <div className="space-y-2">
-        <label className="text-sm font-medium">プロジェクト名</label>
+        <label className="text-sm font-medium">{t('projectEdit.labelName')}</label>
         <input
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="例: 社内業務システム"
+          placeholder={t('projectEdit.placeholderName')}
           className="w-full border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
         />
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium">カラー</label>
+        <label className="text-sm font-medium">{t('projectEdit.labelColor')}</label>
         <div className="flex gap-2">
           {PROJECT_COLORS.map((c) => (
             <button
@@ -265,15 +265,15 @@ export function ProjectEdit(): JSX.Element {
       {/* Tabs */}
       <div className="border border-border rounded-md overflow-hidden">
         <div className="flex border-b border-border bg-secondary/30">
-          {tabs.map((t) => (
+          {tabs.map((tab) => (
             <button
-              key={t.id}
-              onClick={() => setActiveTab(t.id)}
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
               className={`px-4 py-2 text-sm font-medium transition-colors ${
-                activeTab === t.id ? 'bg-background border-b-2 border-primary' : 'text-muted-foreground hover:bg-accent'
+                activeTab === tab.id ? 'bg-background border-b-2 border-primary' : 'text-muted-foreground hover:bg-accent'
               }`}
             >
-              {t.label}
+              {tab.label}
             </button>
           ))}
         </div>
@@ -291,33 +291,33 @@ export function ProjectEdit(): JSX.Element {
                         checked={repo.enabled}
                         onChange={(e) => setGitRepos((prev) => prev.map((r) => r.id === repo.id ? { ...r, enabled: e.target.checked } : r))}
                       />
-                      有効
+                      {t('common.enabled')}
                     </label>
                     <button
                       onClick={() => setGitRepos((prev) => prev.filter((r) => r.id !== repo.id))}
                       className="text-xs text-destructive hover:underline"
                     >
-                      削除
+                      {t('common.delete')}
                     </button>
                   </div>
-                  <Field label="ローカル作業フォルダ">
+                  <Field label={t('projectEdit.gitLocalPath')}>
                     <input type="text" value={repo.localPath}
                       onChange={(e) => setGitRepos((prev) => prev.map((r) => r.id === repo.id ? { ...r, localPath: e.target.value } : r))}
                       placeholder="C:\projects\myapp"
                       className="input-field" />
                   </Field>
-                  <Field label="リモートURL（HTTPS認証が必要な場合のみ）">
+                  <Field label={t('projectEdit.gitRepoUrl')}>
                     <input type="text" value={repo.repoUrl}
                       onChange={(e) => setGitRepos((prev) => prev.map((r) => r.id === repo.id ? { ...r, repoUrl: e.target.value } : r))}
                       placeholder="https://github.com/user/repo"
                       className="input-field" />
                   </Field>
-                  <Field label="ブランチ">
+                  <Field label={t('projectEdit.gitBranch')}>
                     <input type="text" value={repo.branch}
                       onChange={(e) => setGitRepos((prev) => prev.map((r) => r.id === repo.id ? { ...r, branch: e.target.value } : r))}
                       placeholder="main" className="input-field" />
                   </Field>
-                  <Field label="アクセストークン（HTTPS認証、任意）">
+                  <Field label={t('projectEdit.gitToken')}>
                     <input type="password" value={gitTokens[repo.id] || ''}
                       onChange={(e) => setGitTokens((prev) => ({ ...prev, [repo.id]: e.target.value }))}
                       placeholder="ghp_xxxx..." className="input-field" />
@@ -325,7 +325,7 @@ export function ProjectEdit(): JSX.Element {
                   <div className="flex items-center gap-3 pt-1 border-t border-border">
                     <button onClick={() => handleTestGit(repo)}
                       className="px-3 py-1.5 text-xs border border-border rounded-md hover:bg-accent">
-                      接続テスト
+                      {t('common.test')}
                     </button>
                     {testResults[repo.id] && (
                       <span className={`text-xs ${testResults[repo.id].ok ? 'text-green-600' : 'text-destructive'}`}>
@@ -337,7 +337,7 @@ export function ProjectEdit(): JSX.Element {
               ))}
               <button onClick={() => setGitRepos((prev) => [...prev, newGitRepo()])}
                 className="px-3 py-2 text-sm border border-border rounded-md hover:bg-accent">
-                + Gitリポジトリを追加
+                {t('projectEdit.addGit')}
               </button>
             </>
           )}
@@ -354,35 +354,35 @@ export function ProjectEdit(): JSX.Element {
                         checked={repo.enabled}
                         onChange={(e) => setSvnRepos((prev) => prev.map((r) => r.id === repo.id ? { ...r, enabled: e.target.checked } : r))}
                       />
-                      有効
+                      {t('common.enabled')}
                     </label>
                     <button
                       onClick={() => setSvnRepos((prev) => prev.filter((r) => r.id !== repo.id))}
                       className="text-xs text-destructive hover:underline"
                     >
-                      削除
+                      {t('common.delete')}
                     </button>
                   </div>
-                  <Field label="ローカル作業コピー">
+                  <Field label={t('projectEdit.svnLocalPath')}>
                     <input type="text" value={repo.localPath}
                       onChange={(e) => setSvnRepos((prev) => prev.map((r) => r.id === repo.id ? { ...r, localPath: e.target.value } : r))}
                       placeholder="C:\projects\myapp-svn"
                       className="input-field" />
                   </Field>
-                  <Field label="リポジトリURL">
+                  <Field label={t('projectEdit.svnRepoUrl')}>
                     <input type="text" value={repo.repoUrl}
                       onChange={(e) => setSvnRepos((prev) => prev.map((r) => r.id === repo.id ? { ...r, repoUrl: e.target.value } : r))}
                       placeholder="https://svn.example.com/repos/myproject" className="input-field" />
                   </Field>
-                  <Field label="ユーザー名">
+                  <Field label={t('projectEdit.svnUsername')}>
                     <input type="text" value={repo.username ?? ''}
                       onChange={(e) => setSvnRepos((prev) => prev.map((r) => r.id === repo.id ? { ...r, username: e.target.value } : r))}
-                      placeholder="SVNユーザー名" className="input-field" />
+                      placeholder="username" className="input-field" />
                   </Field>
                   <div className="flex items-center gap-3 pt-1 border-t border-border">
                     <button onClick={() => handleTestSvn(repo)}
                       className="px-3 py-1.5 text-xs border border-border rounded-md hover:bg-accent">
-                      接続テスト
+                      {t('common.test')}
                     </button>
                     {testResults[repo.id] && (
                       <span className={`text-xs ${testResults[repo.id].ok ? 'text-green-600' : 'text-destructive'}`}>
@@ -392,10 +392,10 @@ export function ProjectEdit(): JSX.Element {
                   </div>
                 </div>
               ))}
-              <p className="text-xs text-muted-foreground">※ SVNクライアント（TortoiseSVN等）のインストールが必要です</p>
+              <p className="text-xs text-muted-foreground">{t('projectEdit.svnNote')}</p>
               <button onClick={() => setSvnRepos((prev) => [...prev, newSvnRepo()])}
                 className="px-3 py-2 text-sm border border-border rounded-md hover:bg-accent">
-                + SVNリポジトリを追加
+                {t('projectEdit.addSvn')}
               </button>
             </>
           )}
@@ -412,43 +412,43 @@ export function ProjectEdit(): JSX.Element {
                         checked={repo.enabled}
                         onChange={(e) => setPerforceRepos((prev) => prev.map((r) => r.id === repo.id ? { ...r, enabled: e.target.checked } : r))}
                       />
-                      有効
+                      {t('common.enabled')}
                     </label>
                     <button
                       onClick={() => setPerforceRepos((prev) => prev.filter((r) => r.id !== repo.id))}
                       className="text-xs text-destructive hover:underline"
                     >
-                      削除
+                      {t('common.delete')}
                     </button>
                   </div>
-                  <Field label="P4PORT（例: perforce:1666）">
+                  <Field label={t('projectEdit.p4Port')}>
                     <input type="text" value={repo.port}
                       onChange={(e) => setPerforceRepos((prev) => prev.map((r) => r.id === repo.id ? { ...r, port: e.target.value } : r))}
                       placeholder="perforce:1666"
                       className="input-field" />
                   </Field>
-                  <Field label="ユーザー名（P4USER）">
+                  <Field label={t('projectEdit.p4User')}>
                     <input type="text" value={repo.username}
                       onChange={(e) => setPerforceRepos((prev) => prev.map((r) => r.id === repo.id ? { ...r, username: e.target.value } : r))}
                       placeholder="username"
                       className="input-field" />
                   </Field>
-                  <Field label="デポパス（例: //depot/myproject/...）">
+                  <Field label={t('projectEdit.p4DepotPath')}>
                     <input type="text" value={repo.depotPath}
                       onChange={(e) => setPerforceRepos((prev) => prev.map((r) => r.id === repo.id ? { ...r, depotPath: e.target.value } : r))}
                       placeholder="//depot/myproject/..."
                       className="input-field" />
                   </Field>
-                  <Field label="パスワード / チケット（任意）">
+                  <Field label={t('projectEdit.p4Password')}>
                     <input type="password" value={perforcePasswords[repo.id] || ''}
                       onChange={(e) => setPerforcePasswords((prev) => ({ ...prev, [repo.id]: e.target.value }))}
-                      placeholder="P4PASSWD またはログインチケット"
+                      placeholder="P4PASSWD"
                       className="input-field" />
                   </Field>
                   <div className="flex items-center gap-3 pt-1 border-t border-border">
                     <button onClick={() => handleTestP4(repo)}
                       className="px-3 py-1.5 text-xs border border-border rounded-md hover:bg-accent">
-                      接続テスト
+                      {t('common.test')}
                     </button>
                     {testResults[repo.id] && (
                       <span className={`text-xs ${testResults[repo.id].ok ? 'text-green-600' : 'text-destructive'}`}>
@@ -458,10 +458,10 @@ export function ProjectEdit(): JSX.Element {
                   </div>
                 </div>
               ))}
-              <p className="text-xs text-muted-foreground">※ p4 コマンドラインクライアントのインストールが必要です</p>
+              <p className="text-xs text-muted-foreground">{t('projectEdit.p4Note')}</p>
               <button onClick={() => setPerforceRepos((prev) => [...prev, newPerforceRepo()])}
                 className="px-3 py-2 text-sm border border-border rounded-md hover:bg-accent">
-                + Perforceリポジトリを追加
+                {t('projectEdit.addPerforce')}
               </button>
             </>
           )}
@@ -478,51 +478,51 @@ export function ProjectEdit(): JSX.Element {
                         checked={cfg.enabled}
                         onChange={(e) => setRedmineConfigs((prev) => prev.map((c) => c.id === cfg.id ? { ...c, enabled: e.target.checked } : c))}
                       />
-                      有効
+                      {t('common.enabled')}
                     </label>
                     <button
                       onClick={() => setRedmineConfigs((prev) => prev.filter((c) => c.id !== cfg.id))}
                       className="text-xs text-destructive hover:underline"
                     >
-                      削除
+                      {t('common.delete')}
                     </button>
                   </div>
-                  <Field label="Redmine URL">
+                  <Field label={t('projectEdit.redmineUrl')}>
                     <input type="text" value={cfg.baseUrl}
                       onChange={(e) => setRedmineConfigs((prev) => prev.map((c) => c.id === cfg.id ? { ...c, baseUrl: e.target.value } : c))}
                       placeholder="https://redmine.example.com"
                       className="input-field" />
                   </Field>
-                  <Field label="プロジェクト識別子（任意、空=全プロジェクト）">
+                  <Field label={t('projectEdit.redmineProjectId')}>
                     <input type="text" value={cfg.projectId ?? ''}
                       onChange={(e) => setRedmineConfigs((prev) => prev.map((c) => c.id === cfg.id ? { ...c, projectId: e.target.value } : c))}
                       placeholder="my-project"
                       className="input-field" />
                   </Field>
-                  <Field label="APIアクセスキー">
+                  <Field label={t('projectEdit.redmineApiKey')}>
                     <input type="password" value={redmineApiKeys[cfg.id] || ''}
                       onChange={(e) => setRedmineApiKeys((prev) => ({ ...prev, [cfg.id]: e.target.value }))}
-                      placeholder="Redmineの「個人設定」→「APIアクセスキー」"
+                      placeholder="Redmine API key"
                       className="input-field" />
                   </Field>
                   <div className="pt-1 border-t border-border">
-                    <Field label="Basic認証のユーザー名（任意）">
+                    <Field label={t('projectEdit.redmineBasicTitle')}>
                       <input type="text" value={cfg.username ?? ''}
                         onChange={(e) => setRedmineConfigs((prev) => prev.map((c) => c.id === cfg.id ? { ...c, username: e.target.value } : c))}
-                        placeholder="Basic認証のユーザー名（任意）"
+                        placeholder={t('projectEdit.redmineBasicTitle')}
                         className="input-field" />
                     </Field>
-                    <Field label="Basic認証のパスワード（任意）">
+                    <Field label={t('projectEdit.redmineBasicPassword')}>
                       <input type="password" value={redminePasswords[cfg.id] || ''}
                         onChange={(e) => setRedminePasswords((prev) => ({ ...prev, [cfg.id]: e.target.value }))}
-                        placeholder="Basic認証のパスワード（任意）"
+                        placeholder={t('projectEdit.redmineBasicPassword')}
                         className="input-field" />
                     </Field>
                   </div>
                   <div className="flex items-center gap-3 pt-1 border-t border-border">
                     <button onClick={() => handleTestRedmine(cfg)}
                       className="px-3 py-1.5 text-xs border border-border rounded-md hover:bg-accent">
-                      接続テスト
+                      {t('common.test')}
                     </button>
                     {testResults[cfg.id] && (
                       <span className={`text-xs ${testResults[cfg.id].ok ? 'text-green-600' : 'text-destructive'}`}>
@@ -532,12 +532,10 @@ export function ProjectEdit(): JSX.Element {
                   </div>
                 </div>
               ))}
-              <p className="text-xs text-muted-foreground">
-                ※ APIアクセスキーはRedmineの「個人設定」ページで確認できます
-              </p>
+              <p className="text-xs text-muted-foreground">{t('projectEdit.redmineNote')}</p>
               <button onClick={() => setRedmineConfigs((prev) => [...prev, newRedmineConfig()])}
                 className="px-3 py-2 text-sm border border-border rounded-md hover:bg-accent">
-                + Redmineを追加
+                {t('projectEdit.addRedmine')}
               </button>
             </>
           )}
@@ -546,29 +544,27 @@ export function ProjectEdit(): JSX.Element {
             <>
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={slack.enabled} onChange={(e) => setSlack({ ...slack, enabled: e.target.checked })} />
-                Slack連携を有効にする
+                {t('projectEdit.slackEnable')}
               </label>
               {slack.enabled && (
                 <>
                   {slackWorkspaces.length === 0 ? (
-                    <p className="text-xs text-amber-600">
-                      ⚠ 設定画面（⚙️）で Slack ワークスペースを追加してください。
-                    </p>
+                    <p className="text-xs text-amber-600">{t('projectEdit.slackNoWorkspace')}</p>
                   ) : (
-                    <Field label="ワークスペース">
+                    <Field label={t('projectEdit.slackWorkspace')}>
                       <select
                         value={slack.workspaceId}
                         onChange={(e) => setSlack({ ...slack, workspaceId: e.target.value })}
                         className="input-field"
                       >
-                        <option value="">選択してください</option>
+                        <option value="">{t('projectEdit.slackSelectPlaceholder')}</option>
                         {slackWorkspaces.map((ws) => (
                           <option key={ws.workspaceId} value={ws.workspaceId}>{ws.workspaceName}</option>
                         ))}
                       </select>
                     </Field>
                   )}
-                  <Field label="チャンネルID（カンマ区切り）">
+                  <Field label={t('projectEdit.slackChannels')}>
                     <input type="text" value={slack.channelIds.join(',')}
                       onChange={(e) => setSlack({ ...slack, channelIds: e.target.value.split(',').map(s => s.trim()) })}
                       onBlur={(e) => setSlack({ ...slack, channelIds: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
@@ -578,7 +574,7 @@ export function ProjectEdit(): JSX.Element {
                     <button onClick={handleTestSlack}
                       disabled={!slack.workspaceId}
                       className="px-3 py-1.5 text-xs border border-border rounded-md hover:bg-accent disabled:opacity-40">
-                      接続テスト
+                      {t('common.test')}
                     </button>
                     {testResults['slack'] && (
                       <span className={`text-xs ${testResults['slack'].ok ? 'text-green-600' : 'text-destructive'}`}>
@@ -593,23 +589,21 @@ export function ProjectEdit(): JSX.Element {
 
           {activeTab === 'calendar' && (
             <>
-              <p className="text-xs text-muted-foreground">
-                ご利用前に<span className="font-medium text-foreground">設定画面（⚙️）</span>で Google Calendar の Client ID / Client Secret を登録し、認証を完了してください。
-              </p>
+              <p className="text-xs text-muted-foreground">{t('projectEdit.calendarNote')}</p>
               <label className="flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
                   checked={googleCalendar.enabled}
                   onChange={(e) => setGoogleCalendar({ ...googleCalendar, enabled: e.target.checked })}
                 />
-                Google Calendar 連携を有効にする
+                {t('projectEdit.calendarEnable')}
               </label>
               {googleCalendar.enabled && (
                 <div className="text-xs text-muted-foreground p-2 bg-secondary/40 rounded space-y-0.5">
-                  <p className="font-medium text-foreground">プロジェクトの判定方法</p>
-                  <p>予定のタイトルにプロジェクト名が含まれていれば検出されます（大文字小文字区別なし）</p>
-                  <p className="font-medium text-foreground">予定の収集について</p>
-                  <p>参加可否未回答または拒否した予定は収集から除外されます</p>
+                  <p className="font-medium text-foreground">{t('projectEdit.calendarHowTitle')}</p>
+                  <p>{t('projectEdit.calendarHowDesc')}</p>
+                  <p className="font-medium text-foreground">{t('projectEdit.calendarCollectTitle')}</p>
+                  <p>{t('projectEdit.calendarCollectDesc')}</p>
                 </div>
               )}
             </>
@@ -617,17 +611,17 @@ export function ProjectEdit(): JSX.Element {
 
           {activeTab === 'files' && (
             <>
-              <p className="text-sm text-muted-foreground">指定したパス以下で日付範囲内に変更されたファイルを収集します</p>
+              <p className="text-sm text-muted-foreground">{t('projectEdit.filesDesc')}</p>
               {filePaths.map((fp, i) => (
                 <div key={i} className="p-3 bg-secondary/30 rounded space-y-2 text-sm">
                   <div className="flex items-center gap-2">
                     <span className="flex-1 truncate font-mono text-xs">{fp.path}</span>
                     <button onClick={() => setFilePaths(prev => prev.filter((_, j) => j !== i))}
-                      className="text-destructive text-xs shrink-0">削除</button>
+                      className="text-destructive text-xs shrink-0">{t('common.delete')}</button>
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-medium text-muted-foreground">
-                      除外パターン（1行1パターン、gitignore形式）
+                      {t('projectEdit.filesExclude')}
                     </label>
                     <textarea
                       value={fp.excludePatterns.join('\n')}
@@ -646,7 +640,7 @@ export function ProjectEdit(): JSX.Element {
               ))}
               <button onClick={addFilePath}
                 className="px-3 py-2 text-sm border border-border rounded-md hover:bg-accent">
-                + フォルダを追加
+                {t('projectEdit.filesAdd')}
               </button>
             </>
           )}
@@ -658,11 +652,11 @@ export function ProjectEdit(): JSX.Element {
       <div className="flex gap-3">
         <button onClick={() => navigate('/projects')}
           className="flex-1 py-2 border border-border rounded-md text-sm hover:bg-accent">
-          キャンセル
+          {t('common.cancel')}
         </button>
         <button onClick={handleSave} disabled={saving}
           className="flex-1 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 disabled:opacity-50">
-          {saving ? '保存中...' : '保存'}
+          {saving ? t('common.saving') : t('common.save')}
         </button>
       </div>
     </div>

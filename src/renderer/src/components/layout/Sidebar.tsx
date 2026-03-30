@@ -1,18 +1,20 @@
 import { NavLink } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { cn } from '../../lib/utils'
 import { useAppStore } from '../../store/app.store'
 import { APP_VERSION } from '@shared/constants'
 
-const navItems = [
-  { to: '/dashboard', label: 'ダッシュボード', icon: '📊' },
-  { to: '/projects', label: 'プロジェクト', icon: '📁' },
-  { to: '/templates', label: 'テンプレート', icon: '📝' },
-  { to: '/settings', label: '設定', icon: '⚙️' }
-]
-
 export function Sidebar(): JSX.Element {
+  const { t } = useTranslation()
   const { isGenerating, isAllocating } = useAppStore()
   const isBusy = isGenerating || isAllocating
+
+  const navItems = [
+    { to: '/dashboard', label: t('sidebar.dashboard'), icon: '📊' },
+    { to: '/projects', label: t('sidebar.projects'), icon: '📁' },
+    { to: '/templates', label: t('sidebar.templates'), icon: '📝' },
+    { to: '/settings', label: t('sidebar.settings'), icon: '⚙️' }
+  ]
 
   return (
     <aside className="w-52 shrink-0 border-r border-border bg-secondary/30 flex flex-col">
@@ -46,7 +48,7 @@ export function Sidebar(): JSX.Element {
           className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
         >
           <span>💬</span>
-          <span>フィードバック</span>
+          <span>{t('sidebar.feedback')}</span>
         </a>
         <p className="text-xs text-muted-foreground px-3">v{APP_VERSION}</p>
       </div>

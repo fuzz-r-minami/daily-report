@@ -22,10 +22,13 @@ export interface AppSettings {
   slackWorkspaces?: SlackWorkspace[]
 }
 
+export type AppLanguage = 'ja' | 'en' | 'zh-CN' | 'zh-TW' | 'ko'
+
 export interface GeneralSettings {
   dataDir: string
   logRetentionDays: number
   defaultReportType: 'daily' | 'weekly' | 'monthly'
+  language?: AppLanguage
 }
 
 export interface Project {
@@ -142,7 +145,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   templates: [
     {
       id: 'default-daily',
-      name: 'デフォルト日報',
+      name: 'Default Daily Template',
       type: 'daily',
       isDefault: true,
       preamble: DEFAULT_PREAMBLE,
@@ -155,7 +158,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     },
     {
       id: 'default-weekly',
-      name: 'デフォルト週報',
+      name: 'Default Weekly Template',
       type: 'weekly',
       isDefault: true,
       preamble: DEFAULT_PREAMBLE_WEEKLY,
@@ -168,7 +171,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     },
     {
       id: 'default-monthly',
-      name: 'デフォルト月報',
+      name: 'Default Monthly Tempalte',
       type: 'monthly',
       isDefault: true,
       preamble: DEFAULT_PREAMBLE_MONTHLY,
