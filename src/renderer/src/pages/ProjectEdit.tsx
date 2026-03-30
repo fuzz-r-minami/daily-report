@@ -8,12 +8,13 @@ import type {
   GitProjectConfig,
   SvnProjectConfig,
   PerforceProjectConfig,
+  RedmineProjectConfig,
   SlackProjectConfig,
   FilePathConfig,
   GoogleCalendarProjectConfig
 } from '@shared/types/settings.types'
 
-type Tab = 'git' | 'svn' | 'perforce' | 'slack' | 'calendar' | 'files'
+type Tab = 'git' | 'svn' | 'perforce' | 'redmine' | 'slack' | 'calendar' | 'files'
 
 const newGitRepo = (): GitProjectConfig => ({
   id: crypto.randomUUID(),
@@ -26,6 +27,10 @@ const newSvnRepo = (): SvnProjectConfig => ({
 const newPerforceRepo = (): PerforceProjectConfig => ({
   id: crypto.randomUUID(),
   enabled: true, port: '', username: '', depotPath: '//', credentialKey: ''
+})
+const newRedmineConfig = (): RedmineProjectConfig => ({
+  id: crypto.randomUUID(),
+  enabled: true, baseUrl: '', projectId: '', username: '', credentialKey: ''
 })
 const EMPTY_SLACK: SlackProjectConfig = {
   enabled: false, workspaceId: '', channelIds: []
@@ -50,6 +55,9 @@ export function ProjectEdit(): JSX.Element {
   const [svnRepos, setSvnRepos] = useState<SvnProjectConfig[]>(existing?.svnRepos || [])
   const [perforceRepos, setPerforceRepos] = useState<PerforceProjectConfig[]>(existing?.perforceRepos || [])
   const [perforcePasswords, setPerforcePasswords] = useState<Record<string, string>>({})
+  const [redmineConfigs, setRedmineConfigs] = useState<RedmineProjectConfig[]>(existing?.redmineConfigs || [])
+  const [redmineApiKeys, setRedmineApiKeys] = useState<Record<string, string>>({})
+  const [redminePasswords, setRedminePasswords] = useState<Record<string, string>>({})
   const [slack, setSlack] = useState<SlackProjectConfig>(existing?.slack || EMPTY_SLACK)
   const [googleCalendar, setGoogleCalendar] = useState<GoogleCalendarProjectConfig>(
     existing?.googleCalendar || EMPTY_GOOGLE_CALENDAR
@@ -81,6 +89,20 @@ export function ProjectEdit(): JSX.Element {
         }
       }
     }
+    if (existing?.redmineConfigs) {
+      for (const cfg of existing.redmineConfigs) {
+        if (cfg.credentialKey) {
+          api.credentialGet(cfg.credentialKey).then((r) => {
+            if (r.success && r.data) setRedmineApiKeys((prev) => ({ ...prev, [cfg.id]: r.data! }))
+          })
+        }
+        if (cfg.basicAuthPasswordKey) {
+          api.credentialGet(cfg.basicAuthPasswordKey).then((r) => {
+            if (r.success && r.data) setRedminePasswords((prev) => ({ ...prev, [cfg.id]: r.data! }))
+          })
+        }
+      }
+    }
   }, [])
 
   const saveCredentials = async (proj: Project): Promise<void> => {
@@ -100,6 +122,20 @@ export function ProjectEdit(): JSX.Element {
         repo.credentialKey = key
       }
     }
+    for (const cfg of proj.redmineConfigs || []) {
+      const apiKey = redmineApiKeys[cfg.id]
+      if (apiKey) {
+        const key = `redmine-apikey-${cfg.id}`
+        await api.credentialSet(key, apiKey)
+        cfg.credentialKey = key
+      }
+      const pwd = redminePasswords[cfg.id]
+      if (pwd) {
+        const key = `redmine-password-${cfg.id}`
+        await api.credentialSet(key, pwd)
+        cfg.basicAuthPasswordKey = key
+      }
+    }
   }
 
   const handleSave = async (): Promise<void> => {
@@ -111,6 +147,7 @@ export function ProjectEdit(): JSX.Element {
         gitRepos: gitRepos.length > 0 ? gitRepos : undefined,
         svnRepos: svnRepos.length > 0 ? svnRepos : undefined,
         perforceRepos: perforceRepos.length > 0 ? perforceRepos : undefined,
+        redmineConfigs: redmineConfigs.length > 0 ? redmineConfigs : undefined,
         slack: slack.enabled ? slack : undefined,
         googleCalendar: googleCalendar.enabled ? googleCalendar : undefined,
         filePaths: filePaths.length > 0 ? filePaths : undefined
@@ -144,6 +181,24 @@ export function ProjectEdit(): JSX.Element {
     setTestResults((prev) => ({ ...prev, [repo.id]: { msg: r.success ? r.data : r.error, ok: r.success } }))
   }
 
+  const handleTestRedmine = async (cfg: RedmineProjectConfig): Promise<void> => {
+    const apiKey = redmineApiKeys[cfg.id] || ''
+    if (!apiKey) {
+      setTestResults((prev) => ({ ...prev, [cfg.id]: { msg: 'APIアクセスキーを入力してください', ok: false } }))
+      return
+    }
+    const tempApiKeyKey = `redmine-test-apikey-${cfg.id}`
+    await api.credentialSet(tempApiKeyKey, apiKey)
+    const pwd = redminePasswords[cfg.id]
+    let tempPwdKey: string | undefined
+    if (cfg.username && pwd) {
+      tempPwdKey = `redmine-test-password-${cfg.id}`
+      await api.credentialSet(tempPwdKey, pwd)
+    }
+    const r = await api.redmineTest(cfg.baseUrl, tempApiKeyKey, cfg.username, tempPwdKey)
+    setTestResults((prev) => ({ ...prev, [cfg.id]: { msg: r.success ? r.data : r.error, ok: r.success } }))
+  }
+
   const handleTestP4 = async (repo: PerforceProjectConfig): Promise<void> => {
     const pwd = perforcePasswords[repo.id] || ''
     if (pwd) await api.credentialSet('p4-test-password', pwd)
@@ -172,6 +227,7 @@ export function ProjectEdit(): JSX.Element {
     { id: 'git', label: 'Git' },
     { id: 'svn', label: 'SVN' },
     { id: 'perforce', label: 'Perforce' },
+    { id: 'redmine', label: 'Redmine' },
     { id: 'slack', label: 'Slack' },
     { id: 'calendar', label: 'Google Calendar' },
     { id: 'files', label: 'ファイル監視' }
@@ -406,6 +462,82 @@ export function ProjectEdit(): JSX.Element {
               <button onClick={() => setPerforceRepos((prev) => [...prev, newPerforceRepo()])}
                 className="px-3 py-2 text-sm border border-border rounded-md hover:bg-accent">
                 + Perforceリポジトリを追加
+              </button>
+            </>
+          )}
+
+          {/* Redmine */}
+          {activeTab === 'redmine' && (
+            <>
+              {redmineConfigs.map((cfg) => (
+                <div key={cfg.id} className="border border-border rounded-md p-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-2 text-sm font-medium">
+                      <input
+                        type="checkbox"
+                        checked={cfg.enabled}
+                        onChange={(e) => setRedmineConfigs((prev) => prev.map((c) => c.id === cfg.id ? { ...c, enabled: e.target.checked } : c))}
+                      />
+                      有効
+                    </label>
+                    <button
+                      onClick={() => setRedmineConfigs((prev) => prev.filter((c) => c.id !== cfg.id))}
+                      className="text-xs text-destructive hover:underline"
+                    >
+                      削除
+                    </button>
+                  </div>
+                  <Field label="Redmine URL">
+                    <input type="text" value={cfg.baseUrl}
+                      onChange={(e) => setRedmineConfigs((prev) => prev.map((c) => c.id === cfg.id ? { ...c, baseUrl: e.target.value } : c))}
+                      placeholder="https://redmine.example.com"
+                      className="input-field" />
+                  </Field>
+                  <Field label="プロジェクト識別子（任意、空=全プロジェクト）">
+                    <input type="text" value={cfg.projectId ?? ''}
+                      onChange={(e) => setRedmineConfigs((prev) => prev.map((c) => c.id === cfg.id ? { ...c, projectId: e.target.value } : c))}
+                      placeholder="my-project"
+                      className="input-field" />
+                  </Field>
+                  <Field label="APIアクセスキー">
+                    <input type="password" value={redmineApiKeys[cfg.id] || ''}
+                      onChange={(e) => setRedmineApiKeys((prev) => ({ ...prev, [cfg.id]: e.target.value }))}
+                      placeholder="Redmineの「個人設定」→「APIアクセスキー」"
+                      className="input-field" />
+                  </Field>
+                  <div className="pt-1 border-t border-border">
+                    <Field label="Basic認証のユーザー名（任意）">
+                      <input type="text" value={cfg.username ?? ''}
+                        onChange={(e) => setRedmineConfigs((prev) => prev.map((c) => c.id === cfg.id ? { ...c, username: e.target.value } : c))}
+                        placeholder="Basic認証のユーザー名（任意）"
+                        className="input-field" />
+                    </Field>
+                    <Field label="Basic認証のパスワード（任意）">
+                      <input type="password" value={redminePasswords[cfg.id] || ''}
+                        onChange={(e) => setRedminePasswords((prev) => ({ ...prev, [cfg.id]: e.target.value }))}
+                        placeholder="Basic認証のパスワード（任意）"
+                        className="input-field" />
+                    </Field>
+                  </div>
+                  <div className="flex items-center gap-3 pt-1 border-t border-border">
+                    <button onClick={() => handleTestRedmine(cfg)}
+                      className="px-3 py-1.5 text-xs border border-border rounded-md hover:bg-accent">
+                      接続テスト
+                    </button>
+                    {testResults[cfg.id] && (
+                      <span className={`text-xs ${testResults[cfg.id].ok ? 'text-green-600' : 'text-destructive'}`}>
+                        {testResults[cfg.id].ok ? '✓' : '✗'} {testResults[cfg.id].msg}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+              <p className="text-xs text-muted-foreground">
+                ※ APIアクセスキーはRedmineの「個人設定」ページで確認できます
+              </p>
+              <button onClick={() => setRedmineConfigs((prev) => [...prev, newRedmineConfig()])}
+                className="px-3 py-2 text-sm border border-border rounded-md hover:bg-accent">
+                + Redmineを追加
               </button>
             </>
           )}

@@ -56,6 +56,12 @@ const api = {
   claudeTest: (credentialKey: string) => ipcRenderer.invoke('claude:test', credentialKey),
   claudeFormat: (rawText: string, templateId: string) => ipcRenderer.invoke('claude:format', rawText, templateId),
 
+  // Redmine
+  redmineTest: (baseUrl: string, credentialKey: string, username?: string, basicAuthPasswordKey?: string) =>
+    ipcRenderer.invoke('redmine:test', baseUrl, credentialKey, username, basicAuthPasswordKey),
+  redmineFetch: (projectId: string, dateRange: unknown) =>
+    ipcRenderer.invoke('redmine:fetch', projectId, dateRange),
+
   // Google Calendar
   calendarStartAuth: () => ipcRenderer.invoke('calendar:startAuth'),
   calendarTest: () => ipcRenderer.invoke('calendar:test'),

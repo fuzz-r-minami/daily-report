@@ -13,6 +13,7 @@ import { fetchSlackMessages } from '../services/slack.service'
 import { fetchChangedFiles } from '../services/file-watcher.service'
 import { fetchCalendarEvents, matchesProject } from '../services/calendar.service'
 import { fetchP4Changes } from '../services/perforce.service'
+import { fetchRedmineIssues } from '../services/redmine.service'
 import { buildRawText } from '../services/report.service'
 import { computeAllocation } from '../services/allocation.service'
 import type { AllocationResult } from '@shared/types/report.types'
@@ -35,7 +36,7 @@ function sendProgress(
   win: BrowserWindow,
   projectId: string,
   projectName: string,
-  step: 'git' | 'svn' | 'perforce' | 'slack' | 'files' | 'calendar',
+  step: 'git' | 'svn' | 'perforce' | 'redmine' | 'slack' | 'files' | 'calendar',
   status: 'running' | 'done' | 'error' | 'skipped',
   message?: string
 ): void {
@@ -349,6 +350,51 @@ async function collectPerforceData(
   return { changelists: allChangelists, fetchedAt: new Date().toISOString(), error }
 }
 
+async function collectRedmineData(
+  win: BrowserWindow,
+  project: Project,
+  dateRange: DateRange
+): Promise<CollectedData['redmine']> {
+  const enabledConfigs = (project.redmineConfigs || []).filter((c) => c.enabled)
+  if (enabledConfigs.length === 0) {
+    sendProgress(win, project.id, project.name, 'redmine', 'skipped')
+    return undefined
+  }
+
+  sendProgress(win, project.id, project.name, 'redmine', 'running')
+  const allIssues: NonNullable<CollectedData['redmine']>['issues'] = []
+  let error: string | undefined
+
+  for (const config of enabledConfigs) {
+    sendLog(win, `[${ts()}] Redmine: ${config.baseUrl} project=${config.projectId || '(全体)'} ${dateRange.start}〜${dateRange.end}`)
+    try {
+      const apiKey = config.credentialKey
+        ? await credentialsStore.getCredential(config.credentialKey)
+        : null
+      if (!apiKey) {
+        sendLog(win, `[${ts()}] Redmine: APIキー未設定のためスキップ`)
+        continue
+      }
+      const basicPassword = config.basicAuthPasswordKey
+        ? (await credentialsStore.getCredential(config.basicAuthPasswordKey)) ?? undefined
+        : undefined
+      const result = await withTimeout(
+        fetchRedmineIssues(config, dateRange, apiKey, (line) => sendLog(win, line), basicPassword),
+        'Redmine'
+      )
+      allIssues.push(...result.issues)
+      sendLog(win, `[${ts()}] Redmine: ${config.baseUrl} → ${result.issues.length}件取得`)
+    } catch (e) {
+      error = extractErrorMessage(e)
+      sendLog(win, `[${ts()}] Redmine エラー: ${config.baseUrl}`)
+      sendLog(win, `  ${error}`)
+    }
+  }
+  allIssues.sort((a, b) => new Date(b.updatedOn).getTime() - new Date(a.updatedOn).getTime())
+  sendProgress(win, project.id, project.name, 'redmine', error ? 'error' : 'done', `${allIssues.length}件取得`)
+  return { issues: allIssues, fetchedAt: new Date().toISOString(), error }
+}
+
 /** キャッシュからこのプロジェクトに一致するカレンダーイベントを抽出する（API 呼び出しなし） */
 function collectCalendarData(
   win: BrowserWindow,
@@ -412,6 +458,7 @@ export function registerReportHandlers(win: BrowserWindow): void {
             git: await collectGitData(win, project, dateRange),
             svn: await collectSvnData(win, project, dateRange),
             perforce: await collectPerforceData(win, project, dateRange),
+            redmine: await collectRedmineData(win, project, dateRange),
             slack: collectSlackData(win, project, slackCache),
             files: await collectFileData(win, project, dateRange),
             calendar: collectCalendarData(win, project, calendarCache)
@@ -482,6 +529,7 @@ export function registerReportHandlers(win: BrowserWindow): void {
             git: await collectGitData(win, project, dateRange),
             svn: await collectSvnData(win, project, dateRange),
             perforce: await collectPerforceData(win, project, dateRange),
+            redmine: await collectRedmineData(win, project, dateRange),
             slack: collectSlackData(win, project, slackCache),
             calendar: collectCalendarData(win, project, calendarCache)
             // files は按分計算に含めない

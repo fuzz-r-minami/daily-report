@@ -1,5 +1,5 @@
 export const APP_NAME = '日報ジェネレーター'
-export const APP_VERSION = '1.0.1'
+export const APP_VERSION = '1.0.2'
 
 export const SLACK_CLIENT_ID = '379997451684.10778849087878'
 
@@ -58,5 +58,6 @@ export const DEFAULT_SYSTEM_PROMPT_MONTHLY =
 export const GIT_MAX_COMMITS = 200
 export const SVN_MAX_COMMITS = 200
 export const PERFORCE_MAX_CHANGES = 200
+export const REDMINE_MAX_ISSUES = 100
 export const SLACK_MAX_MESSAGES = 500
 export const FILE_MAX_ENTRIES = 5000

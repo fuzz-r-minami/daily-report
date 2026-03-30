@@ -36,6 +36,7 @@ export interface Project {
   gitRepos?: GitProjectConfig[]
   svnRepos?: SvnProjectConfig[]
   perforceRepos?: PerforceProjectConfig[]
+  redmineConfigs?: RedmineProjectConfig[]
   slack?: SlackProjectConfig
   googleCalendar?: GoogleCalendarProjectConfig
   filePaths?: FilePathConfig[]
@@ -68,6 +69,16 @@ export interface PerforceProjectConfig {
   username: string     // P4USER
   depotPath: string    // デポパス 例: //depot/myproject/...
   credentialKey: string  // P4PASSWD / チケット（keytar）
+}
+
+export interface RedmineProjectConfig {
+  id: string
+  enabled: boolean
+  baseUrl: string       // 例: https://redmine.example.com
+  projectId?: string    // Redmineプロジェクト識別子（空=全プロジェクト）
+  username?: string     // Basic認証ユーザー名
+  credentialKey: string // APIアクセスキー（keytar）
+  basicAuthPasswordKey?: string // Basic認証パスワード（keytar、任意）
 }
 
 export interface SlackWorkspace {

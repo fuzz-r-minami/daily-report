@@ -77,6 +77,7 @@ function hasAnyData(data: CollectedData): boolean {
   if (data.slack && !data.slack.error && data.slack.messages.length > 0) return true
   if (data.files && !data.files.error && data.files.changedFiles.length > 0) return true
   if (data.calendar && !data.calendar.error && data.calendar.events.length > 0) return true
+  if (data.redmine && !data.redmine.error && data.redmine.issues.length > 0) return true
   return false
 }
 
@@ -181,6 +182,22 @@ export function buildRawText(
           const date = formatDate(new Date(cl.date))
           const firstMsg = cl.description.split('\n')[0].trim()
           lines.push(`- ${date} | CL${cl.change} | ${firstMsg}`)
+        }
+        lines.push('')
+      }
+    }
+
+    // Redmine
+    if (data.redmine) {
+      if (data.redmine.error) {
+        lines.push(`#### Redmineチケット (取得エラー: ${data.redmine.error})`)
+        lines.push('')
+      } else if (data.redmine.issues.length > 0) {
+        lines.push(`#### Redmineチケット (${data.redmine.issues.length}件)`)
+        for (const issue of data.redmine.issues) {
+          const date = formatDate(new Date(issue.updatedOn))
+          const label = `${date} | #${issue.id} [${issue.status}] ${issue.subject}`
+          lines.push(`- [${label}](${issue.url})`)
         }
         lines.push('')
       }

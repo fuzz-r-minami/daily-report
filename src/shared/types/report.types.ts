@@ -55,6 +55,18 @@ export interface ChangedFile {
   sizeBytes: number
 }
 
+export interface RedmineIssue {
+  id: number
+  subject: string
+  status: string
+  tracker: string
+  projectName: string
+  assignee?: { id: number; name: string }
+  updatedOn: string
+  createdOn: string
+  url: string
+}
+
 export interface CollectedData {
   projectId: string
   projectName: string
@@ -93,6 +105,11 @@ export interface CollectedData {
     fetchedAt: string
     error?: string
   }
+  redmine?: {
+    issues: RedmineIssue[]
+    fetchedAt: string
+    error?: string
+  }
 }
 
 export interface ReportSession {
@@ -118,7 +135,7 @@ export interface AllocationResult {
 export type CollectionProgress = {
   projectId: string
   projectName: string
-  step: 'git' | 'svn' | 'perforce' | 'slack' | 'files' | 'calendar'
+  step: 'git' | 'svn' | 'perforce' | 'redmine' | 'slack' | 'files' | 'calendar'
   status: 'pending' | 'running' | 'done' | 'error' | 'skipped'
   message?: string
 }

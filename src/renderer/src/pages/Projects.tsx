@@ -64,6 +64,7 @@ export function Projects(): JSX.Element {
               (p.gitRepos?.some((r) => r.enabled)) && 'Git',
               (p.svnRepos?.some((r) => r.enabled)) && 'SVN',
               (p.perforceRepos?.some((r) => r.enabled)) && 'Perforce',
+              (p.redmineConfigs?.some((c) => c.enabled)) && 'Redmine',
               p.slack?.enabled && 'Slack',
               p.googleCalendar?.enabled && 'Google Calendar',
               (p.filePaths?.length ?? 0) > 0 && `ファイル監視 ${p.filePaths!.length}件`

@@ -11,6 +11,7 @@ import { registerMailHandlers } from './ipc/mail.handler'
 import { registerReportHandlers } from './ipc/report.handler'
 import { registerCalendarHandlers } from './ipc/calendar.handler'
 import { registerPerforceHandlers } from './ipc/perforce.handler'
+import { registerRedmineHandlers } from './ipc/redmine.handler'
 import { protocolEmitter } from './protocol'
 
 // drepo:// カスタムスキームを登録（Windows: 2重起動を防ぎつつ second-instance でコールバックを受け取る）
@@ -97,6 +98,7 @@ app.whenReady().then(() => {
   registerMailHandlers()
   registerCalendarHandlers()
   registerPerforceHandlers()
+  registerRedmineHandlers()
 
   createWindow()
 
