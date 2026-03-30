@@ -38,8 +38,17 @@ export function Sidebar(): JSX.Element {
           </NavLink>
         ))}
       </nav>
-      <div className="p-3 border-t border-border">
-        <p className="text-xs text-muted-foreground">v{APP_VERSION}</p>
+      <div className="p-3 border-t border-border space-y-2">
+        <a
+          href="https://feedbackme.ai/drepo"
+          target="_blank"
+          rel="noreferrer"
+          className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+        >
+          <span>💬</span>
+          <span>フィードバック</span>
+        </a>
+        <p className="text-xs text-muted-foreground px-3">v{APP_VERSION}</p>
       </div>
     </aside>
   )
