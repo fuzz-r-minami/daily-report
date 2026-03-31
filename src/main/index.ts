@@ -12,6 +12,8 @@ import { registerReportHandlers } from './ipc/report.handler'
 import { registerCalendarHandlers } from './ipc/calendar.handler'
 import { registerPerforceHandlers } from './ipc/perforce.handler'
 import { registerRedmineHandlers } from './ipc/redmine.handler'
+import { registerJiraHandlers } from './ipc/jira.handler'
+import { registerConfluenceHandlers } from './ipc/confluence.handler'
 import { protocolEmitter } from './protocol'
 
 // drepo:// カスタムスキームを登録（Windows: 2重起動を防ぎつつ second-instance でコールバックを受け取る）
@@ -99,6 +101,8 @@ app.whenReady().then(() => {
   registerCalendarHandlers()
   registerPerforceHandlers()
   registerRedmineHandlers()
+  registerJiraHandlers()
+  registerConfluenceHandlers()
 
   createWindow()
 

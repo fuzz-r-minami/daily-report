@@ -40,6 +40,8 @@ export interface Project {
   svnRepos?: SvnProjectConfig[]
   perforceRepos?: PerforceProjectConfig[]
   redmineConfigs?: RedmineProjectConfig[]
+  jiraConfigs?: JiraProjectConfig[]
+  confluenceConfigs?: ConfluenceProjectConfig[]
   slack?: SlackProjectConfig
   googleCalendar?: GoogleCalendarProjectConfig
   filePaths?: FilePathConfig[]
@@ -84,6 +86,26 @@ export interface RedmineProjectConfig {
   basicAuthPasswordKey?: string // Basic認証パスワード（keytar、任意）
 }
 
+export interface JiraProjectConfig {
+  id: string
+  enabled: boolean
+  baseUrl: string       // 例: https://company.atlassian.net
+  email: string         // Atlassianアカウントのメールアドレス（Cloud）またはユーザー名（Server）
+  credentialKey: string // APIトークン（keytar）
+  projectKey?: string   // プロジェクトキーで絞り込み（例: PROJ）、空=全プロジェクト
+  isServer?: boolean    // true = Server/Data Center モード
+}
+
+export interface ConfluenceProjectConfig {
+  id: string
+  enabled: boolean
+  baseUrl: string       // 例: https://company.atlassian.net
+  email: string         // Atlassianアカウントのメールアドレス（Cloud）またはユーザー名（Server）
+  credentialKey: string // APIトークン（keytar）
+  spaceKey?: string     // スペースキーで絞り込み（例: TEAM）、空=全スペース
+  isServer?: boolean    // true = Server/Data Center モード
+}
+
 export interface SlackWorkspace {
   workspaceId: string
   workspaceName: string
@@ -119,9 +141,6 @@ export interface Template {
 
 export interface ClaudeSettings {
   enabled: boolean
-  model: string
-  maxTokens: number
-  credentialKey: string
 }
 
 export interface GoogleCalendarSettings {
@@ -184,9 +203,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
     }
   ],
   claude: {
-    enabled: false,
-    model: 'claude-sonnet-4-6',
-    maxTokens: 4096,
-    credentialKey: 'claude-api-key'
+    enabled: false
   }
 }

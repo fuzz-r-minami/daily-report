@@ -6,7 +6,7 @@ import { testClaudeConnection, formatWithClaude } from '../services/claude.servi
 export function registerClaudeHandlers(): void {
   ipcMain.handle('claude:test', async (): Promise<IpcResult<string>> => {
     try {
-      const result = await testClaudeConnection('')
+      const result = await testClaudeConnection()
       return { success: true, data: result }
     } catch (e) {
       return { success: false, error: String(e) }
@@ -25,7 +25,7 @@ export function registerClaudeHandlers(): void {
         const template = settingsStore.getTemplates().find((t) => t.id === templateId)
         if (!template) return { success: false, error: 'テンプレートが見つかりません' }
 
-        const result = await formatWithClaude(rawText, template, '', '', 0)
+        const result = await formatWithClaude(rawText, template)
         return { success: true, data: result }
       } catch (e) {
         return { success: false, error: String(e) }

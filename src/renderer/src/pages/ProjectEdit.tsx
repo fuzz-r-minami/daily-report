@@ -10,12 +10,14 @@ import type {
   SvnProjectConfig,
   PerforceProjectConfig,
   RedmineProjectConfig,
+  JiraProjectConfig,
+  ConfluenceProjectConfig,
   SlackProjectConfig,
   FilePathConfig,
   GoogleCalendarProjectConfig
 } from '@shared/types/settings.types'
 
-type Tab = 'git' | 'svn' | 'perforce' | 'redmine' | 'slack' | 'calendar' | 'files'
+type Tab = 'git' | 'svn' | 'perforce' | 'redmine' | 'jira' | 'confluence' | 'slack' | 'calendar' | 'files'
 
 const newGitRepo = (): GitProjectConfig => ({
   id: crypto.randomUUID(),
@@ -32,6 +34,14 @@ const newPerforceRepo = (): PerforceProjectConfig => ({
 const newRedmineConfig = (): RedmineProjectConfig => ({
   id: crypto.randomUUID(),
   enabled: true, baseUrl: '', projectId: '', username: '', credentialKey: ''
+})
+const newJiraConfig = (): JiraProjectConfig => ({
+  id: crypto.randomUUID(),
+  enabled: true, baseUrl: '', email: '', credentialKey: '', projectKey: '', isServer: false
+})
+const newConfluenceConfig = (): ConfluenceProjectConfig => ({
+  id: crypto.randomUUID(),
+  enabled: true, baseUrl: '', email: '', credentialKey: '', spaceKey: '', isServer: false
 })
 const EMPTY_SLACK: SlackProjectConfig = {
   enabled: false, workspaceId: '', channelIds: []
@@ -60,6 +70,10 @@ export function ProjectEdit(): JSX.Element {
   const [redmineConfigs, setRedmineConfigs] = useState<RedmineProjectConfig[]>(existing?.redmineConfigs || [])
   const [redmineApiKeys, setRedmineApiKeys] = useState<Record<string, string>>({})
   const [redminePasswords, setRedminePasswords] = useState<Record<string, string>>({})
+  const [jiraConfigs, setJiraConfigs] = useState<JiraProjectConfig[]>(existing?.jiraConfigs || [])
+  const [jiraApiTokens, setJiraApiTokens] = useState<Record<string, string>>({})
+  const [confluenceConfigs, setConfluenceConfigs] = useState<ConfluenceProjectConfig[]>(existing?.confluenceConfigs || [])
+  const [confluenceApiTokens, setConfluenceApiTokens] = useState<Record<string, string>>({})
   const [slack, setSlack] = useState<SlackProjectConfig>(existing?.slack || EMPTY_SLACK)
   const [googleCalendar, setGoogleCalendar] = useState<GoogleCalendarProjectConfig>(
     existing?.googleCalendar || EMPTY_GOOGLE_CALENDAR
@@ -103,6 +117,24 @@ export function ProjectEdit(): JSX.Element {
         }
       }
     }
+    if (existing?.jiraConfigs) {
+      for (const cfg of existing.jiraConfigs) {
+        if (cfg.credentialKey) {
+          api.credentialGet(cfg.credentialKey).then((r) => {
+            if (r.success && r.data) setJiraApiTokens((prev) => ({ ...prev, [cfg.id]: r.data! }))
+          })
+        }
+      }
+    }
+    if (existing?.confluenceConfigs) {
+      for (const cfg of existing.confluenceConfigs) {
+        if (cfg.credentialKey) {
+          api.credentialGet(cfg.credentialKey).then((r) => {
+            if (r.success && r.data) setConfluenceApiTokens((prev) => ({ ...prev, [cfg.id]: r.data! }))
+          })
+        }
+      }
+    }
   }, [])
 
   const saveCredentials = async (proj: Project): Promise<void> => {
@@ -136,6 +168,22 @@ export function ProjectEdit(): JSX.Element {
         cfg.basicAuthPasswordKey = key
       }
     }
+    for (const cfg of proj.jiraConfigs || []) {
+      const token = jiraApiTokens[cfg.id]
+      if (token) {
+        const key = `jira-token-${cfg.id}`
+        await api.credentialSet(key, token)
+        cfg.credentialKey = key
+      }
+    }
+    for (const cfg of proj.confluenceConfigs || []) {
+      const token = confluenceApiTokens[cfg.id]
+      if (token) {
+        const key = `confluence-token-${cfg.id}`
+        await api.credentialSet(key, token)
+        cfg.credentialKey = key
+      }
+    }
   }
 
   const handleSave = async (): Promise<void> => {
@@ -148,6 +196,8 @@ export function ProjectEdit(): JSX.Element {
         svnRepos: svnRepos.length > 0 ? svnRepos : undefined,
         perforceRepos: perforceRepos.length > 0 ? perforceRepos : undefined,
         redmineConfigs: redmineConfigs.length > 0 ? redmineConfigs : undefined,
+        jiraConfigs: jiraConfigs.length > 0 ? jiraConfigs : undefined,
+        confluenceConfigs: confluenceConfigs.length > 0 ? confluenceConfigs : undefined,
         slack: slack.enabled ? slack : undefined,
         googleCalendar: googleCalendar.enabled ? googleCalendar : undefined,
         filePaths: filePaths.length > 0 ? filePaths : undefined
@@ -199,6 +249,30 @@ export function ProjectEdit(): JSX.Element {
     setTestResults((prev) => ({ ...prev, [cfg.id]: { msg: r.success ? r.data : r.error, ok: r.success } }))
   }
 
+  const handleTestJira = async (cfg: JiraProjectConfig): Promise<void> => {
+    const token = jiraApiTokens[cfg.id] || ''
+    if (!token) {
+      setTestResults((prev) => ({ ...prev, [cfg.id]: { msg: t('projectEdit.apiKeyRequired'), ok: false } }))
+      return
+    }
+    const tempKey = `jira-test-token-${cfg.id}`
+    await api.credentialSet(tempKey, token)
+    const r = await api.jiraTest(cfg.baseUrl, cfg.email, tempKey, cfg.isServer)
+    setTestResults((prev) => ({ ...prev, [cfg.id]: { msg: r.success ? r.data : r.error, ok: r.success } }))
+  }
+
+  const handleTestConfluence = async (cfg: ConfluenceProjectConfig): Promise<void> => {
+    const token = confluenceApiTokens[cfg.id] || ''
+    if (!token) {
+      setTestResults((prev) => ({ ...prev, [cfg.id]: { msg: t('projectEdit.apiKeyRequired'), ok: false } }))
+      return
+    }
+    const tempKey = `confluence-test-token-${cfg.id}`
+    await api.credentialSet(tempKey, token)
+    const r = await api.confluenceTest(cfg.baseUrl, cfg.email, tempKey, cfg.isServer)
+    setTestResults((prev) => ({ ...prev, [cfg.id]: { msg: r.success ? r.data : r.error, ok: r.success } }))
+  }
+
   const handleTestP4 = async (repo: PerforceProjectConfig): Promise<void> => {
     const pwd = perforcePasswords[repo.id] || ''
     if (pwd) await api.credentialSet('p4-test-password', pwd)
@@ -228,6 +302,8 @@ export function ProjectEdit(): JSX.Element {
     { id: 'svn', label: t('projectEdit.tabSvn') },
     { id: 'perforce', label: t('projectEdit.tabPerforce') },
     { id: 'redmine', label: t('projectEdit.tabRedmine') },
+    { id: 'jira', label: t('projectEdit.tabJira') },
+    { id: 'confluence', label: t('projectEdit.tabConfluence') },
     { id: 'slack', label: t('projectEdit.tabSlack') },
     { id: 'calendar', label: t('projectEdit.tabCalendar') },
     { id: 'files', label: t('projectEdit.tabFiles') }
@@ -264,12 +340,12 @@ export function ProjectEdit(): JSX.Element {
 
       {/* Tabs */}
       <div className="border border-border rounded-md overflow-hidden">
-        <div className="flex border-b border-border bg-secondary/30">
+        <div className="flex flex-wrap border-b border-border bg-secondary/30">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2 text-sm font-medium transition-colors ${
+              className={`px-3 py-1.5 text-xs font-medium transition-colors ${
                 activeTab === tab.id ? 'bg-background border-b-2 border-primary' : 'text-muted-foreground hover:bg-accent'
               }`}
             >
@@ -536,6 +612,150 @@ export function ProjectEdit(): JSX.Element {
               <button onClick={() => setRedmineConfigs((prev) => [...prev, newRedmineConfig()])}
                 className="px-3 py-2 text-sm border border-border rounded-md hover:bg-accent">
                 {t('projectEdit.addRedmine')}
+              </button>
+            </>
+          )}
+
+          {/* JIRA */}
+          {activeTab === 'jira' && (
+            <>
+              {jiraConfigs.map((cfg) => (
+                <div key={cfg.id} className="border border-border rounded-md p-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-2 text-sm font-medium">
+                      <input
+                        type="checkbox"
+                        checked={cfg.enabled}
+                        onChange={(e) => setJiraConfigs((prev) => prev.map((c) => c.id === cfg.id ? { ...c, enabled: e.target.checked } : c))}
+                      />
+                      {t('common.enabled')}
+                    </label>
+                    <button
+                      onClick={() => setJiraConfigs((prev) => prev.filter((c) => c.id !== cfg.id))}
+                      className="text-xs text-destructive hover:underline"
+                    >
+                      {t('common.delete')}
+                    </button>
+                  </div>
+                  <Field label={t('projectEdit.jiraUrl')}>
+                    <input type="text" value={cfg.baseUrl}
+                      onChange={(e) => setJiraConfigs((prev) => prev.map((c) => c.id === cfg.id ? { ...c, baseUrl: e.target.value } : c))}
+                      placeholder="https://company.atlassian.net"
+                      className="input-field" />
+                  </Field>
+                  <Field label={t('projectEdit.jiraEmail')}>
+                    <input type="text" value={cfg.email}
+                      onChange={(e) => setJiraConfigs((prev) => prev.map((c) => c.id === cfg.id ? { ...c, email: e.target.value } : c))}
+                      placeholder="user@example.com"
+                      className="input-field" />
+                  </Field>
+                  <Field label={t('projectEdit.jiraApiToken')}>
+                    <input type="password" value={jiraApiTokens[cfg.id] || ''}
+                      onChange={(e) => setJiraApiTokens((prev) => ({ ...prev, [cfg.id]: e.target.value }))}
+                      placeholder="ATATT3xFfGF0..."
+                      className="input-field" />
+                  </Field>
+                  <Field label={t('projectEdit.jiraProjectKey')}>
+                    <input type="text" value={cfg.projectKey ?? ''}
+                      onChange={(e) => setJiraConfigs((prev) => prev.map((c) => c.id === cfg.id ? { ...c, projectKey: e.target.value } : c))}
+                      placeholder="PROJ"
+                      className="input-field" />
+                  </Field>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" checked={cfg.isServer ?? false}
+                      onChange={(e) => setJiraConfigs((prev) => prev.map((c) => c.id === cfg.id ? { ...c, isServer: e.target.checked } : c))}
+                    />
+                    {t('projectEdit.jiraServerMode')}
+                  </label>
+                  <div className="flex items-center gap-3 pt-1 border-t border-border">
+                    <button onClick={() => handleTestJira(cfg)}
+                      className="px-3 py-1.5 text-xs border border-border rounded-md hover:bg-accent">
+                      {t('common.test')}
+                    </button>
+                    {testResults[cfg.id] && (
+                      <span className={`text-xs ${testResults[cfg.id].ok ? 'text-green-600' : 'text-destructive'}`}>
+                        {testResults[cfg.id].ok ? '✓' : '✗'} {testResults[cfg.id].msg}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+              <p className="text-xs text-muted-foreground">{t('projectEdit.jiraNote')}</p>
+              <button onClick={() => setJiraConfigs((prev) => [...prev, newJiraConfig()])}
+                className="px-3 py-2 text-sm border border-border rounded-md hover:bg-accent">
+                {t('projectEdit.addJira')}
+              </button>
+            </>
+          )}
+
+          {/* Confluence */}
+          {activeTab === 'confluence' && (
+            <>
+              {confluenceConfigs.map((cfg) => (
+                <div key={cfg.id} className="border border-border rounded-md p-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-2 text-sm font-medium">
+                      <input
+                        type="checkbox"
+                        checked={cfg.enabled}
+                        onChange={(e) => setConfluenceConfigs((prev) => prev.map((c) => c.id === cfg.id ? { ...c, enabled: e.target.checked } : c))}
+                      />
+                      {t('common.enabled')}
+                    </label>
+                    <button
+                      onClick={() => setConfluenceConfigs((prev) => prev.filter((c) => c.id !== cfg.id))}
+                      className="text-xs text-destructive hover:underline"
+                    >
+                      {t('common.delete')}
+                    </button>
+                  </div>
+                  <Field label={t('projectEdit.confluenceUrl')}>
+                    <input type="text" value={cfg.baseUrl}
+                      onChange={(e) => setConfluenceConfigs((prev) => prev.map((c) => c.id === cfg.id ? { ...c, baseUrl: e.target.value } : c))}
+                      placeholder="https://company.atlassian.net"
+                      className="input-field" />
+                  </Field>
+                  <Field label={t('projectEdit.confluenceEmail')}>
+                    <input type="text" value={cfg.email}
+                      onChange={(e) => setConfluenceConfigs((prev) => prev.map((c) => c.id === cfg.id ? { ...c, email: e.target.value } : c))}
+                      placeholder="user@example.com"
+                      className="input-field" />
+                  </Field>
+                  <Field label={t('projectEdit.confluenceApiToken')}>
+                    <input type="password" value={confluenceApiTokens[cfg.id] || ''}
+                      onChange={(e) => setConfluenceApiTokens((prev) => ({ ...prev, [cfg.id]: e.target.value }))}
+                      placeholder="ATATT3xFfGF0..."
+                      className="input-field" />
+                  </Field>
+                  <Field label={t('projectEdit.confluenceSpaceKey')}>
+                    <input type="text" value={cfg.spaceKey ?? ''}
+                      onChange={(e) => setConfluenceConfigs((prev) => prev.map((c) => c.id === cfg.id ? { ...c, spaceKey: e.target.value } : c))}
+                      placeholder="TEAM"
+                      className="input-field" />
+                  </Field>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" checked={cfg.isServer ?? false}
+                      onChange={(e) => setConfluenceConfigs((prev) => prev.map((c) => c.id === cfg.id ? { ...c, isServer: e.target.checked } : c))}
+                    />
+                    {t('projectEdit.confluenceServerMode')}
+                  </label>
+                  <div className="flex items-center gap-3 pt-1 border-t border-border">
+                    <button onClick={() => handleTestConfluence(cfg)}
+                      className="px-3 py-1.5 text-xs border border-border rounded-md hover:bg-accent">
+                      {t('common.test')}
+                    </button>
+                    {testResults[cfg.id] && (
+                      <span className={`text-xs ${testResults[cfg.id].ok ? 'text-green-600' : 'text-destructive'}`}>
+                        {testResults[cfg.id].ok ? '✓' : '✗'} {testResults[cfg.id].msg}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+              <p className="text-xs text-muted-foreground">{t('projectEdit.confluenceNote')}</p>
+              <button onClick={() => setConfluenceConfigs((prev) => [...prev, newConfluenceConfig()])}
+                className="px-3 py-2 text-sm border border-border rounded-md hover:bg-accent">
+                {t('projectEdit.addConfluence')}
               </button>
             </>
           )}

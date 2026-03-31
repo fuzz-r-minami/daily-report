@@ -2,7 +2,7 @@
 
 **English | [日本語](README.ja.md)**
 
-A Windows desktop app that automatically collects work history from Git, SVN, Perforce, Redmine, Slack, and Google Calendar to generate daily, weekly, and monthly reports.
+A Windows desktop app that automatically collects work history from Git, SVN, Perforce, Jira, Redmine, Confluence, Slack, and Google Calendar to generate daily, weekly, and monthly reports.
 
 **Languages:** 日本語 / English / 简体中文 / 繁體中文 / 한국어
 
@@ -79,7 +79,7 @@ Thank you.
 ### Quick Start
 
 1. **Add a project** (left sidebar → Projects → + New)
-2. Configure the integrations you use (Git / SVN / Perforce / Redmine / Slack, etc.)
+2. Configure the integrations you use (Git / SVN / Perforce / Jira / Redmine / Confluence / Slack, etc.)
 3. Go to the Dashboard, select a project and date range, and generate a report
 
 ---
@@ -116,6 +116,30 @@ Each project can have multiple integration sources configured.
 | Password / ticket | Credentials |
 
 > Perforce integration requires the p4 command-line client.
+
+### Jira
+
+| Field | Description |
+|-------|-------------|
+| Jira URL | URL of your Jira instance (e.g. `https://company.atlassian.net`) |
+| Email / Username | Atlassian account email (Cloud) or username (Server) |
+| API token | Found in your Atlassian account settings |
+| Project key | Leave blank for all projects, or enter a specific key (e.g. `PROJ`) |
+| Server / Data Center mode | Enable for self-hosted Jira instances |
+
+Only issues you **created or updated** within the specified period are collected.
+
+### Confluence
+
+| Field | Description |
+|-------|-------------|
+| Confluence URL | URL of your Confluence instance (e.g. `https://company.atlassian.net`) |
+| Email / Username | Atlassian account email (Cloud) or username (Server) |
+| API token | Found in your Atlassian account settings |
+| Space key | Leave blank for all spaces, or enter a specific key (e.g. `TEAM`) |
+| Server / Data Center mode | Enable for self-hosted Confluence instances |
+
+Only pages you **created or updated** within the specified period are collected.
 
 ### Slack
 
@@ -171,7 +195,7 @@ Collects files modified under specified folders within the date range.
 
 ### Workload Allocation
 
-Days with activity in Git / SVN / Perforce / Redmine / Slack / Google Calendar count as working days. When multiple projects have activity on the same day, each is credited 1/N of a day.
+Days with activity in Git / SVN / Perforce / Jira / Redmine / Confluence / Slack / Google Calendar count as working days. When multiple projects have activity on the same day, each is credited 1/N of a day.
 
 ### Empty Project Exclusion
 

@@ -14,6 +14,8 @@ import { fetchChangedFiles } from '../services/file-watcher.service'
 import { fetchCalendarEvents, matchesProject } from '../services/calendar.service'
 import { fetchP4Changes } from '../services/perforce.service'
 import { fetchRedmineIssues } from '../services/redmine.service'
+import { fetchJiraIssues } from '../services/jira.service'
+import { fetchConfluencePages } from '../services/confluence.service'
 import { buildRawText } from '../services/report.service'
 import { computeAllocation } from '../services/allocation.service'
 import type { AllocationResult } from '@shared/types/report.types'
@@ -36,7 +38,7 @@ function sendProgress(
   win: BrowserWindow,
   projectId: string,
   projectName: string,
-  step: 'git' | 'svn' | 'perforce' | 'redmine' | 'slack' | 'files' | 'calendar',
+  step: 'git' | 'svn' | 'perforce' | 'redmine' | 'jira' | 'confluence' | 'slack' | 'files' | 'calendar',
   status: 'running' | 'done' | 'error' | 'skipped',
   message?: string
 ): void {
@@ -395,6 +397,90 @@ async function collectRedmineData(
   return { issues: allIssues, fetchedAt: new Date().toISOString(), error }
 }
 
+async function collectJiraData(
+  win: BrowserWindow,
+  project: Project,
+  dateRange: DateRange
+): Promise<CollectedData['jira']> {
+  const enabledConfigs = (project.jiraConfigs || []).filter((c) => c.enabled)
+  if (enabledConfigs.length === 0) {
+    sendProgress(win, project.id, project.name, 'jira', 'skipped')
+    return undefined
+  }
+
+  sendProgress(win, project.id, project.name, 'jira', 'running')
+  const allIssues: NonNullable<CollectedData['jira']>['issues'] = []
+  let error: string | undefined
+
+  for (const config of enabledConfigs) {
+    sendLog(win, `[${ts()}] JIRA: ${config.baseUrl} project=${config.projectKey || '(all)'} ${dateRange.start}〜${dateRange.end}`)
+    try {
+      const apiToken = config.credentialKey
+        ? await credentialsStore.getCredential(config.credentialKey)
+        : null
+      if (!apiToken) {
+        sendLog(win, `[${ts()}] JIRA: API token not set, skipping`)
+        continue
+      }
+      const result = await withTimeout(
+        fetchJiraIssues(config, dateRange, apiToken, (line) => sendLog(win, line)),
+        'JIRA'
+      )
+      allIssues.push(...result.issues)
+      sendLog(win, `[${ts()}] JIRA: ${config.baseUrl} → ${result.issues.length} issues`)
+    } catch (e) {
+      error = extractErrorMessage(e)
+      sendLog(win, `[${ts()}] JIRA error: ${config.baseUrl}`)
+      sendLog(win, `  ${error}`)
+    }
+  }
+  allIssues.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+  sendProgress(win, project.id, project.name, 'jira', error ? 'error' : 'done', `${allIssues.length} issues`)
+  return { issues: allIssues, fetchedAt: new Date().toISOString(), error }
+}
+
+async function collectConfluenceData(
+  win: BrowserWindow,
+  project: Project,
+  dateRange: DateRange
+): Promise<CollectedData['confluence']> {
+  const enabledConfigs = (project.confluenceConfigs || []).filter((c) => c.enabled)
+  if (enabledConfigs.length === 0) {
+    sendProgress(win, project.id, project.name, 'confluence', 'skipped')
+    return undefined
+  }
+
+  sendProgress(win, project.id, project.name, 'confluence', 'running')
+  const allPages: NonNullable<CollectedData['confluence']>['pages'] = []
+  let error: string | undefined
+
+  for (const config of enabledConfigs) {
+    sendLog(win, `[${ts()}] Confluence: ${config.baseUrl} space=${config.spaceKey || '(all)'} ${dateRange.start}〜${dateRange.end}`)
+    try {
+      const apiToken = config.credentialKey
+        ? await credentialsStore.getCredential(config.credentialKey)
+        : null
+      if (!apiToken) {
+        sendLog(win, `[${ts()}] Confluence: API token not set, skipping`)
+        continue
+      }
+      const result = await withTimeout(
+        fetchConfluencePages(config, dateRange, apiToken, (line) => sendLog(win, line)),
+        'Confluence'
+      )
+      allPages.push(...result.pages)
+      sendLog(win, `[${ts()}] Confluence: ${config.baseUrl} → ${result.pages.length} pages`)
+    } catch (e) {
+      error = extractErrorMessage(e)
+      sendLog(win, `[${ts()}] Confluence error: ${config.baseUrl}`)
+      sendLog(win, `  ${error}`)
+    }
+  }
+  allPages.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+  sendProgress(win, project.id, project.name, 'confluence', error ? 'error' : 'done', `${allPages.length} pages`)
+  return { pages: allPages, fetchedAt: new Date().toISOString(), error }
+}
+
 /** キャッシュからこのプロジェクトに一致するカレンダーイベントを抽出する（API 呼び出しなし） */
 function collectCalendarData(
   win: BrowserWindow,
@@ -459,6 +545,8 @@ export function registerReportHandlers(win: BrowserWindow): void {
             svn: await collectSvnData(win, project, dateRange),
             perforce: await collectPerforceData(win, project, dateRange),
             redmine: await collectRedmineData(win, project, dateRange),
+            jira: await collectJiraData(win, project, dateRange),
+            confluence: await collectConfluenceData(win, project, dateRange),
             slack: collectSlackData(win, project, slackCache),
             files: await collectFileData(win, project, dateRange),
             calendar: collectCalendarData(win, project, calendarCache)
@@ -530,6 +618,8 @@ export function registerReportHandlers(win: BrowserWindow): void {
             svn: await collectSvnData(win, project, dateRange),
             perforce: await collectPerforceData(win, project, dateRange),
             redmine: await collectRedmineData(win, project, dateRange),
+            jira: await collectJiraData(win, project, dateRange),
+            confluence: await collectConfluenceData(win, project, dateRange),
             slack: collectSlackData(win, project, slackCache),
             calendar: collectCalendarData(win, project, calendarCache)
             // files は按分計算に含めない

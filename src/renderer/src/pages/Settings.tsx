@@ -84,7 +84,7 @@ export function Settings(): JSX.Element {
 
   const handleTestClaude = async (): Promise<void> => {
     setClaudeStatus(null)
-    const r = await api.claudeTest('')
+    const r = await api.claudeTest()
     setClaudeStatus({ ok: r.success, msg: r.success ? r.data : r.error })
   }
 

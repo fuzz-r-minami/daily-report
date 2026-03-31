@@ -62,7 +62,7 @@ export interface IpcFileApi {
 
 // Claude
 export interface IpcClaudeApi {
-  'claude:test': (credentialKey: string) => Promise<IpcResult<string>>
+  'claude:test': () => Promise<IpcResult<string>>
   'claude:format': (rawText: string, templateId: string) => Promise<IpcResult<string>>
 }
 

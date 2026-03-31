@@ -127,6 +127,15 @@ export function ReportPreview(): JSX.Element {
       d.perforce
         ? { label: 'Perforce', count: d.perforce.changelists.length, error: d.perforce.error }
         : { label: 'Perforce', unconfigured: true },
+      d.redmine
+        ? { label: 'Redmine', count: d.redmine.issues.length, error: d.redmine.error }
+        : { label: 'Redmine', unconfigured: true },
+      d.jira
+        ? { label: 'JIRA', count: d.jira.issues.length, error: d.jira.error }
+        : { label: 'JIRA', unconfigured: true },
+      d.confluence
+        ? { label: 'Confluence', count: d.confluence.pages.length, error: d.confluence.error }
+        : { label: 'Confluence', unconfigured: true },
       d.slack
         ? { label: 'Slack', count: d.slack.messages.length, error: d.slack.error }
         : { label: 'Slack', unconfigured: true },

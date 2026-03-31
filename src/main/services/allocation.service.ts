@@ -40,6 +40,15 @@ export function computeAllocation(collectedData: CollectedData[]): AllocationRes
     for (const cl of data.perforce?.changelists ?? []) {
       dates.add(toLocalDateStr(new Date(cl.date)))
     }
+    for (const issue of data.redmine?.issues ?? []) {
+      dates.add(toLocalDateStr(new Date(issue.updatedOn)))
+    }
+    for (const issue of data.jira?.issues ?? []) {
+      dates.add(toLocalDateStr(new Date(issue.updatedAt)))
+    }
+    for (const page of data.confluence?.pages ?? []) {
+      dates.add(toLocalDateStr(new Date(page.updatedAt)))
+    }
     for (const m of data.slack?.messages ?? []) {
       dates.add(toLocalDateStr(new Date(parseFloat(m.timestamp) * 1000)))
     }

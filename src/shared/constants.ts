@@ -1,5 +1,5 @@
 export const APP_NAME = 'drepo'
-export const APP_VERSION = '1.0.3'
+export const APP_VERSION = '1.0.4'
 
 export const SLACK_CLIENT_ID = '379997451684.10778849087878'
 
@@ -59,5 +59,7 @@ export const GIT_MAX_COMMITS = 200
 export const SVN_MAX_COMMITS = 200
 export const PERFORCE_MAX_CHANGES = 200
 export const REDMINE_MAX_ISSUES = 100
+export const JIRA_MAX_ISSUES = 50
+export const CONFLUENCE_MAX_PAGES = 50
 export const SLACK_MAX_MESSAGES = 500
 export const FILE_MAX_ENTRIES = 5000

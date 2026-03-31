@@ -55,6 +55,28 @@ export interface ChangedFile {
   sizeBytes: number
 }
 
+export interface JiraIssue {
+  id: string
+  key: string
+  summary: string
+  status: string
+  issueType: string
+  projectName: string
+  projectKey: string
+  updatedAt: string
+  createdAt: string
+  url: string
+}
+
+export interface ConfluencePage {
+  id: string
+  title: string
+  spaceKey: string
+  spaceName: string
+  updatedAt: string
+  url: string
+}
+
 export interface RedmineIssue {
   id: number
   subject: string
@@ -110,6 +132,16 @@ export interface CollectedData {
     fetchedAt: string
     error?: string
   }
+  jira?: {
+    issues: JiraIssue[]
+    fetchedAt: string
+    error?: string
+  }
+  confluence?: {
+    pages: ConfluencePage[]
+    fetchedAt: string
+    error?: string
+  }
 }
 
 export interface ReportSession {
@@ -135,7 +167,7 @@ export interface AllocationResult {
 export type CollectionProgress = {
   projectId: string
   projectName: string
-  step: 'git' | 'svn' | 'perforce' | 'redmine' | 'slack' | 'files' | 'calendar'
+  step: 'git' | 'svn' | 'perforce' | 'redmine' | 'jira' | 'confluence' | 'slack' | 'files' | 'calendar'
   status: 'pending' | 'running' | 'done' | 'error' | 'skipped'
   message?: string
 }

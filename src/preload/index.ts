@@ -53,7 +53,7 @@ const api = {
   fileFetch: (projectId: string, dateRange: unknown) => ipcRenderer.invoke('file:fetch', projectId, dateRange),
 
   // Claude
-  claudeTest: (credentialKey: string) => ipcRenderer.invoke('claude:test', credentialKey),
+  claudeTest: () => ipcRenderer.invoke('claude:test'),
   claudeFormat: (rawText: string, templateId: string) => ipcRenderer.invoke('claude:format', rawText, templateId),
 
   // Redmine
@@ -61,6 +61,18 @@ const api = {
     ipcRenderer.invoke('redmine:test', baseUrl, credentialKey, username, basicAuthPasswordKey),
   redmineFetch: (projectId: string, dateRange: unknown) =>
     ipcRenderer.invoke('redmine:fetch', projectId, dateRange),
+
+  // JIRA
+  jiraTest: (baseUrl: string, email: string, credentialKey: string, isServer?: boolean) =>
+    ipcRenderer.invoke('jira:test', baseUrl, email, credentialKey, isServer),
+  jiraFetch: (projectId: string, dateRange: unknown) =>
+    ipcRenderer.invoke('jira:fetch', projectId, dateRange),
+
+  // Confluence
+  confluenceTest: (baseUrl: string, email: string, credentialKey: string, isServer?: boolean) =>
+    ipcRenderer.invoke('confluence:test', baseUrl, email, credentialKey, isServer),
+  confluenceFetch: (projectId: string, dateRange: unknown) =>
+    ipcRenderer.invoke('confluence:fetch', projectId, dateRange),
 
   // Google Calendar
   calendarStartAuth: () => ipcRenderer.invoke('calendar:startAuth'),

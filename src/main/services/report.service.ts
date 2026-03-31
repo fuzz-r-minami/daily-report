@@ -78,6 +78,8 @@ function hasAnyData(data: CollectedData): boolean {
   if (data.files && !data.files.error && data.files.changedFiles.length > 0) return true
   if (data.calendar && !data.calendar.error && data.calendar.events.length > 0) return true
   if (data.redmine && !data.redmine.error && data.redmine.issues.length > 0) return true
+  if (data.jira && !data.jira.error && data.jira.issues.length > 0) return true
+  if (data.confluence && !data.confluence.error && data.confluence.pages.length > 0) return true
   return false
 }
 
@@ -198,6 +200,38 @@ export function buildRawText(
           const date = formatDate(new Date(issue.updatedOn))
           const label = `${date} | #${issue.id} [${issue.status}] ${issue.subject}`
           lines.push(`- [${label}](${issue.url})`)
+        }
+        lines.push('')
+      }
+    }
+
+    // JIRA
+    if (data.jira) {
+      if (data.jira.error) {
+        lines.push(`#### JIRAチケット (取得エラー: ${data.jira.error})`)
+        lines.push('')
+      } else if (data.jira.issues.length > 0) {
+        lines.push(`#### JIRAチケット (${data.jira.issues.length}件)`)
+        for (const issue of data.jira.issues) {
+          const date = formatDate(new Date(issue.updatedAt))
+          const label = `${date} | ${issue.key} [${issue.status}] ${issue.summary}`
+          lines.push(`- [${label}](${issue.url})`)
+        }
+        lines.push('')
+      }
+    }
+
+    // Confluence
+    if (data.confluence) {
+      if (data.confluence.error) {
+        lines.push(`#### Confluenceページ (取得エラー: ${data.confluence.error})`)
+        lines.push('')
+      } else if (data.confluence.pages.length > 0) {
+        lines.push(`#### Confluenceページ (${data.confluence.pages.length}件)`)
+        for (const page of data.confluence.pages) {
+          const date = formatDate(new Date(page.updatedAt))
+          const label = `${date} | [${page.spaceKey}] ${page.title}`
+          lines.push(`- [${label}](${page.url})`)
         }
         lines.push('')
       }

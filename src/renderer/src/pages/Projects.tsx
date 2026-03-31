@@ -65,6 +65,8 @@ export function Projects(): JSX.Element {
               (p.svnRepos?.some((r) => r.enabled)) && 'SVN',
               (p.perforceRepos?.some((r) => r.enabled)) && 'Perforce',
               (p.redmineConfigs?.some((c) => c.enabled)) && 'Redmine',
+              (p.jiraConfigs?.some((c) => c.enabled)) && 'JIRA',
+              (p.confluenceConfigs?.some((c) => c.enabled)) && 'Confluence',
               p.slack?.enabled && 'Slack',
               p.googleCalendar?.enabled && 'Google Calendar',
               (p.filePaths?.length ?? 0) > 0 && t('projects.filesLabel', { count: p.filePaths!.length })

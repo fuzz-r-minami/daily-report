@@ -20,6 +20,7 @@ export function Dashboard(): JSX.Element {
 
   const stepLabels: Record<string, string> = {
     git: 'Git', svn: 'SVN', perforce: 'Perforce', redmine: 'Redmine',
+    jira: 'JIRA', confluence: 'Confluence',
     slack: 'Slack', files: t('dashboard.stepFile'), calendar: 'Calendar'
   }
 
@@ -259,6 +260,8 @@ export function Dashboard(): JSX.Element {
               (p.svnRepos?.some((r) => r.enabled)) && 'SVN',
               (p.perforceRepos?.some((r) => r.enabled)) && 'Perforce',
               (p.redmineConfigs?.some((c) => c.enabled)) && 'Redmine',
+              (p.jiraConfigs?.some((c) => c.enabled)) && 'JIRA',
+              (p.confluenceConfigs?.some((c) => c.enabled)) && 'Confluence',
               p.slack?.enabled && 'Slack',
               p.googleCalendar?.enabled && 'Calendar',
               (p.filePaths?.length ?? 0) > 0 && 'Files'

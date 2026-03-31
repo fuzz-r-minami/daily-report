@@ -31,17 +31,14 @@ function runClaude(prompt: string, timeoutMs = 120_000): Promise<string> {
   })
 }
 
-export async function testClaudeConnection(_apiKey: string): Promise<string> {
+export async function testClaudeConnection(): Promise<string> {
   const result = await runClaude('「接続テスト成功」とだけ返してください。', 30_000)
   return `接続成功: ${result.substring(0, 80)}`
 }
 
 export async function formatWithClaude(
   rawText: string,
-  template: Template,
-  _apiKey: string,
-  _model: string,
-  _maxTokens: number
+  template: Template
 ): Promise<string> {
   const prompt =
     `${template.systemPrompt}\n\n` +
